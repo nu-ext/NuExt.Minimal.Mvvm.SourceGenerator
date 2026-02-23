@@ -13,6 +13,7 @@ namespace Minimal.Mvvm.SourceGenerator
             if (methodDeclarationSyntax is not
                 {
                     Parent: ClassDeclarationSyntax,
+                    AttributeLists.Count: > 0,
                     ParameterList.Parameters.Count: <= 2,
                 })
             {
@@ -121,7 +122,7 @@ namespace Minimal.Mvvm.SourceGenerator
             return false;
         }
 
-        private static void GenerateForMethod(scoped NotifyPropertyGeneratorContext ctx, IMethodSymbol methodSymbol, ref bool isFirst)
+        private static void GenerateForMethod(scoped Generator.GeneratorContext genCtx, scoped NotifyPropertyGeneratorContext ctx, IMethodSymbol methodSymbol, ref bool isFirst)
         {
             var attributes = methodSymbol.GetAttributes();
 
@@ -136,20 +137,21 @@ namespace Minimal.Mvvm.SourceGenerator
             var useCommandManagerAttributeData = GetUseCommandManagerAttributeData(useCommandManagerAttribute);
 
             var propertyName = !string.IsNullOrWhiteSpace(notifyAttributeData.PropertyName) ? notifyAttributeData.PropertyName! : GetPropertyNameFromMethodName(methodSymbol.Name);
+            var backingFieldName = ctx.GetOrAddBackingFieldName("_" + char.ToLower(propertyName[0]) + propertyName.Substring(1));
 
-            var backingFieldName = GetBackingFieldNameFromPropertyName(propertyName);
-
-            var propertyType = GetCommandTypeName(ctx.Compilation, methodSymbol);
+            var propertyType = GetCommandTypeName(genCtx.Compilation, methodSymbol);
 
             var callbackData = GetCallbackData(methodSymbol.ContainingType, propertyType, notifyAttributeData);
 
-            string nullable = ctx.Compilation.Options.NullableContextOptions.HasFlag(NullableContextOptions.Annotations) ? "?" : "";
+            string nullable = genCtx.Compilation.Options.NullableContextOptions.HasFlag(NullableContextOptions.Annotations) ? "?" : "";
             var fullyQualifiedTypeName = $"{propertyType?.ToDisplayString(SymbolDisplayFormats.FullyQualifiedTypeName)}{nullable}";
 
             var propCtx = new NotifyPropertyContext(notifyAttributeData, callbackData, customAttributeData, alsoNotifyAttributeData,
-                useCommandManagerAttributeData, true, methodSymbol.GetComment(), fullyQualifiedTypeName, propertyName, backingFieldName, true);
+                useCommandManagerAttributeData, isCommand: true, 
+                methodSymbol.GetComment(), fullyQualifiedTypeName, isPartial: false,
+                propertyName, backingFieldName, generateBackingFieldName: true);
 
-            GenerateProperty(ctx, propCtx, ref isFirst);
+            GenerateProperty(genCtx, ctx, propCtx, ref isFirst);
         }
 
         private static INamedTypeSymbol? GetCommandTypeName(Compilation compilation, IMethodSymbol methodSymbol)
@@ -184,12 +186,6 @@ namespace Minimal.Mvvm.SourceGenerator
             }
             propertyName = char.ToUpper(propertyName[0]) + propertyName.Substring(1) + "Command";
             return propertyName;
-        }
-
-        private static string GetBackingFieldNameFromPropertyName(string propertyName)
-        {
-            var backingFieldName = "_" + char.ToLower(propertyName[0]) + propertyName.Substring(1);
-            return backingFieldName;
         }
 
         #endregion

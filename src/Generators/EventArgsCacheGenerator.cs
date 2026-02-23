@@ -4,15 +4,15 @@ namespace Minimal.Mvvm.SourceGenerator
 {
     internal readonly ref struct EventArgsCacheGeneratorContext(IndentedTextWriter writer, List<string> propertyNames)
     {
-        internal readonly List<string> PropertyNames = propertyNames;
         internal readonly IndentedTextWriter Writer = writer;
+        internal readonly List<string> PropertyNames = propertyNames;
     }
 
     internal struct EventArgsCacheGenerator
     {
-        internal const string GeneratedClassFullyQualifiedName = $"global::{GeneratedNamespace}.{GeneratedClassName}";
-        internal const string GeneratedClassName = "EventArgsCache";
         internal const string GeneratedNamespace = "Minimal.Mvvm";
+        internal const string GeneratedClassName = "EventArgsCache";
+        internal const string GeneratedClassFullyQualifiedName = $"global::{GeneratedNamespace}.{GeneratedClassName}";
 
         #region Methods
 

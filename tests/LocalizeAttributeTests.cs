@@ -20,7 +20,7 @@ namespace NuExt.Minimal.Mvvm.SourceGenerator.Tests
                 var compilation = Compile(source);
                 var (outputCompilation, diagnostics, generatorResult) = RunGenerator(compilation, [new AdditionalTextFileWrapper(jsonFilePath)
                 ]);
-                MultipleAssert(outputCompilation, diagnostics, generatorResult, GetExpectedSource(expected), false);
+                MultipleAssert(outputCompilation, diagnostics, generatorResult, GetExpectedSource(expected));
             }
         }
 

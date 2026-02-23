@@ -10,9 +10,9 @@ namespace Minimal.Mvvm.SourceGenerator
 {
     internal readonly ref struct LocalizePropertyGeneratorContext(IndentedTextWriter writer, IEnumerable<(ISymbol member, ImmutableArray<AttributeData> attributes)> members, ImmutableArray<(string name, AdditionalText text)> additionalTexts)
     {
+        internal readonly IndentedTextWriter Writer = writer;
         internal readonly ImmutableArray<(string name, AdditionalText text)> AdditionalTexts = additionalTexts;
         internal readonly IEnumerable<(ISymbol member, ImmutableArray<AttributeData> attributes)> Members = members;
-        internal readonly IndentedTextWriter Writer = writer;
     }
 
     internal struct LocalizePropertyGenerator
@@ -121,10 +121,45 @@ namespace Minimal.Mvvm.SourceGenerator
 
         private static string StringToValidPropertyName(string key)
         {
-            var s = key.Trim();
-            var validName = char.IsLetter(s[0]) ? char.ToUpper(s[0]).ToString() : "_";
-            validName += new string(s.Skip(1).Select(ch => char.IsLetterOrDigit(ch) ? ch : '_').ToArray());
-            return validName;
+            _ = key ?? throw new ArgumentNullException(nameof(key));
+
+            int start = 0;
+            int end = key.Length - 1;
+
+            while (start <= end && char.IsWhiteSpace(key[start])) start++;
+            while (end >= start && char.IsWhiteSpace(key[end])) end--;
+
+            int len = end - start + 1;
+            if (len <= 0) return "_";
+
+#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
+            return string.Create(len, (key, start), static (dest, state) =>
+            {
+                var src = state.key.AsSpan(state.start, dest.Length);
+
+                char c0 = src[0];
+                dest[0] = char.IsLetter(c0) ? char.ToUpperInvariant(c0) : '_';
+
+                for (int i = 1; i < dest.Length; i++)
+                {
+                    char ch = src[i];
+                    dest[i] = char.IsLetterOrDigit(ch) ? ch : '_';
+                }
+            });
+#else
+            var buf = new char[len];
+
+            char c0 = key[start];
+            buf[0] = char.IsLetter(c0) ? char.ToUpperInvariant(c0) : '_';
+
+            int index = start + 1;
+            for (int i = 1; i < len; i++)
+            {
+                char ch = key[index++];
+                buf[i] = char.IsLetterOrDigit(ch) ? ch : '_';
+            }
+            return new string(buf);
+#endif
         }
 
         private static AttributeData? GetLocalizeAttribute(ImmutableArray<AttributeData> attributes)

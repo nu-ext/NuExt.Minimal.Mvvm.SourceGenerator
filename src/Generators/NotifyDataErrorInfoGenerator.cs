@@ -1,18 +1,19 @@
 ﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using System.CodeDom.Compiler;
+using System.ComponentModel;
 using System.Diagnostics;
+using System.Text;
 
 namespace Minimal.Mvvm.SourceGenerator
 {
-    internal readonly ref struct NotifyDataErrorInfoGeneratorContext(IndentedTextWriter writer, IEnumerable<ISymbol> members, Compilation compilation)
+    internal readonly ref struct NotifyDataErrorInfoGeneratorContext(IndentedTextWriter writer, IEnumerable<ISymbol> members)
     {
-        internal readonly Compilation Compilation = compilation;
-        internal readonly IEnumerable<ISymbol> Members = members;
         internal readonly IndentedTextWriter Writer = writer;
+        internal readonly IEnumerable<ISymbol> Members = members;
     }
 
-    internal struct NotifyDataErrorInfoGenerator
+    internal partial struct NotifyDataErrorInfoGenerator
     {
         internal const string NotifyDataErrorInfoAttributeFullyQualifiedMetadataName = "Minimal.Mvvm.NotifyDataErrorInfoAttribute";
 
@@ -33,6 +34,11 @@ namespace Minimal.Mvvm.SourceGenerator
                 return false;
             }
 
+            if (!NotifyPropertyGenerator.IsValidContainingType(compilation, typeSymbol))
+            {
+                return false;
+            }
+
             return true;
         }
 
@@ -40,7 +46,7 @@ namespace Minimal.Mvvm.SourceGenerator
 
         #region Methods
 
-        public static void Generate(scoped NotifyDataErrorInfoGeneratorContext ctx, ref bool isFirst)
+        public static void Generate(scoped Generator.GeneratorContext genCtx, scoped NotifyDataErrorInfoGeneratorContext ctx, ref bool isFirst)
         {
             foreach (var member in ctx.Members)
             {
@@ -49,18 +55,17 @@ namespace Minimal.Mvvm.SourceGenerator
                     Trace.WriteLine($"{member} is not a ITypeSymbol");
                     continue;
                 }
-                GenerateForMember(ctx, typeSymbol, ref isFirst);
+                GenerateForMember(genCtx, ctx, typeSymbol, ref isFirst);
             }
         }
 
-        private static void GenerateForMember(scoped NotifyDataErrorInfoGeneratorContext ctx, ITypeSymbol typeSymbol, ref bool isFirst)
+        private static void GenerateForMember(scoped Generator.GeneratorContext genCtx, scoped NotifyDataErrorInfoGeneratorContext ctx, 
+            ITypeSymbol typeSymbol, ref bool isFirst)
         {
-            _ = typeSymbol;
+            string nullable = genCtx.Compilation.Options.NullableContextOptions.HasFlag(NullableContextOptions.Annotations) ? "?" : string.Empty;
 
-            string nullable = ctx.Compilation.Options.NullableContextOptions.HasFlag(NullableContextOptions.Annotations) ? "?" : "";
-
-            var code = GetCodeSource(nullable);
-            var lines = GetSourceLines(code);
+            var code = GetCodeSource(nullable, EventArgsCacheGenerator.GeneratedClassFullyQualifiedName, DataErrorsChangedEventArgsCacheGenerator.GeneratedClassFullyQualifiedName);
+            var lines = Generator.GetSourceLines(code);
 
             if (!isFirst)
             {
@@ -73,9 +78,9 @@ namespace Minimal.Mvvm.SourceGenerator
             {
                 foreach (var (indent, length, line) in lines)
                 {
-                    if (length == 0)
+                    if (length == 0 || Generator.IsNoTabsLine(line))
                     {
-                        ctx.Writer.WriteLineNoTabs(string.Empty);
+                        ctx.Writer.WriteLineNoTabs(line);
                         continue;
                     }
                     ctx.Writer.Indent = originalIndent + indent;
@@ -86,234 +91,34 @@ namespace Minimal.Mvvm.SourceGenerator
             {
                 ctx.Writer.Indent = originalIndent;
             }
-        }
-
-        private static List<(int indent, int length, string line)> GetSourceLines(string source)
-        {
-            var lines = source.Split(s_newLineSeparators, StringSplitOptions.None);
-            var (leadingWhitespace, leadingWhitespaceLength) = TextUtils.GetLeadingWhitespace(lines[0]);
-
-            var list = new List<(int indent, int length, string line)>();
-            for (int i = 0; i < lines.Length; i++)
-            {
-                if (leadingWhitespaceLength > 0 && lines[i].StartsWith(leadingWhitespace))
-                {
-                    lines[i] = lines[i].Substring(leadingWhitespaceLength);
-                }
-                int indent = 0;
-                int length = 0;
-                if (!string.IsNullOrWhiteSpace(lines[i]))
-                {
-                    var spaceCount = TextUtils.GetSpaceCount(lines[i]);
-                    Debug.Assert(spaceCount % 4 == 0);
-                    indent = spaceCount / 4;
-                    lines[i] = lines[i].Trim();
-                    length = lines[i].Length;
-                }
-                list.Add((indent, length, lines[i]));
-            }
-            return list;
+            genCtx.CachedPropertyNames.Add(nameof(INotifyDataErrorInfo.HasErrors));
+            genCtx.NotifyDataErrorTypeNames.Add(typeSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
         }
 
         #endregion
 
-        private static readonly string[] s_newLineSeparators = ["\r\n", "\n"];
-
-        private static string GetCodeSource(string nullable) => $$"""
-            private System.Collections.Concurrent.ConcurrentDictionary<string, System.Collections.Generic.List<string>>{{nullable}} _validationErrors;
-            private System.Collections.Concurrent.ConcurrentDictionary<string, (System.Threading.Tasks.Task task, System.Threading.CancellationTokenSource cts)>{{nullable}} _validationTasks;
-
-            #region Generated methods for INotifyDataErrorInfo validation
-
-            /// <summary>
-            /// Cancels the validation task for the specified property.
-            /// </summary>
-            /// <param name="propertyName">
-            /// The name of the property. This parameter may be set by the compiler if called from within a property setter,
-            /// or it should be specified explicitly.
-            /// </param>
-            public void CancelValidationTask([System.Runtime.CompilerServices.CallerMemberName] string{{nullable}} propertyName = null)
+        internal static string GetCodeSource(int indentation, string nullable)
+        {
+            var code = GetCodeSource(nullable, EventArgsCacheGenerator.GeneratedClassFullyQualifiedName, DataErrorsChangedEventArgsCacheGenerator.GeneratedClassFullyQualifiedName);
+            var lines = Generator.GetSourceLines(code);
+            var sb = new StringBuilder(8192);
+            foreach (var (indent, length, line) in lines)
             {
-                if (propertyName is not { Length: > 0 } || _validationTasks is null || !_validationTasks.TryRemove(propertyName, out var validation))
+                if (length == 0 || Generator.IsNoTabsLine(line))
                 {
-                    return;
+                    sb.AppendLine(line);
+                    continue;
                 }
-                var (task, cts) = validation;
-                try
+                var i = indent + indentation;
+                if (i > 0)
                 {
-                    if (!task.IsCompleted)
-                    {
-                        cts.Cancel();
-                    }
+                    sb.Append(' ', i * 4);
                 }
-                catch (System.ObjectDisposedException)
-                {
-                    //do nothing
-                }
+                sb.Append(line);
+                sb.AppendLine();
             }
+            return sb.ToString();
+        }
 
-            /// <summary>
-            /// Cancels all ongoing validation tasks.
-            /// </summary>
-            /// <remarks>
-            /// It is recommended to call this method during the uninitialization or disposal of the model/object
-            /// to ensure that no lingering validation tasks remain active.
-            /// </remarks>
-            public void CancelAllValidationTasks()
-            {
-                if (_validationTasks == null)
-                {
-                    return;
-                }
-                System.Collections.Generic.List<System.AggregateException>{{nullable}} exceptions = null;
-                foreach (var pair in _validationTasks)
-                {
-                    var (task, cts) = pair.Value;
-                    try
-                    {
-                        if (!task.IsCompleted)
-                        {
-                            cts.Cancel();
-                        }
-                    }
-                    catch (System.ObjectDisposedException)
-                    {
-                        //do nothing
-                    }
-                    catch (System.AggregateException ex)
-                    {
-                        (exceptions ??= []).Add(ex);
-                    }
-                }
-                _validationTasks.Clear();
-                if (exceptions is not null)
-                {
-                    throw new System.AggregateException(exceptions);
-                }
-            }
-
-            /// <summary>
-            /// Clears validation errors for the specified property.
-            /// </summary>
-            /// <param name="propertyName">
-            /// The name of the property. This parameter may be set by the compiler if called from within a property setter,
-            /// or it should be specified explicitly.
-            /// </param>
-            public void ClearErrors([System.Runtime.CompilerServices.CallerMemberName] string{{nullable}} propertyName = null)
-            {
-                if (propertyName is not { Length: > 0 } || _validationErrors is null || !_validationErrors.TryGetValue(propertyName, out var errors)) return;
-                errors.Clear();
-                OnErrorsChanged(propertyName);
-            }
-
-            /// <summary>
-            /// Clears all validation errors for all properties.
-            /// </summary>
-            public void ClearAllErrors()
-            {
-                if (_validationErrors is not { Count: > 0 }) return;
-                foreach (var pair in _validationErrors)
-                {
-                    ClearErrors(pair.Key);
-                }
-                OnErrorsChanged(null);
-            }
-
-            /// <summary>
-            /// Triggers the <see cref="ErrorsChanged"/> event for the specified property.
-            /// </summary>
-            /// <param name="propertyName">
-            /// The name of the property. This parameter may be set by the compiler if called from within a property setter,
-            /// or it should be specified explicitly.
-            /// </param>
-            private void OnErrorsChanged([System.Runtime.CompilerServices.CallerMemberName] string{{nullable}} propertyName = null)
-            {
-                ErrorsChanged?.Invoke(this, new System.ComponentModel.DataErrorsChangedEventArgs(propertyName));
-            }
-
-            /// <summary>
-            /// Sets an error message for the specified property.
-            /// </summary>
-            /// <param name="error">The error message.</param>
-            /// <param name="propertyName">
-            /// The name of the property. This parameter may be set by the compiler if called from within a property setter,
-            /// or it should be specified explicitly.
-            /// </param>
-            public void SetError(string error, [System.Runtime.CompilerServices.CallerMemberName] string{{nullable}} propertyName = null)
-            {
-                if (propertyName is not { Length: > 0 })
-                {
-                    return;
-                }
-
-                (_validationErrors ??= []).AddOrUpdate(
-                    propertyName,
-                    addValueFactory: key => [error],
-                    updateValueFactory: (key, errors) =>
-                    {
-                        errors.Add(error);
-                        return errors;
-                    });
-
-                OnErrorsChanged(propertyName);
-            }
-
-            /// <summary>
-            /// Sets a validation task for the specified property.
-            /// </summary>
-            /// <param name="task">The validation task.</param>
-            /// <param name="cts">The cancellation token source for the task.</param>
-            /// <param name="propertyName">
-            /// The name of the property. This parameter may be set by the compiler if called from within a property setter,
-            /// or it should be specified explicitly.
-            /// </param>
-            public void SetValidationTask(System.Threading.Tasks.Task task, System.Threading.CancellationTokenSource cts, string propertyName)
-            {
-                if (propertyName is not { Length: > 0 })
-                {
-                    return;
-                }
-
-                if (_validationTasks?.TryRemove(propertyName, out var oldValidation) == true)
-                {
-                    var (_, oldCts) = oldValidation;
-                    try
-                    {
-                        oldCts.Cancel();
-                    }
-                    catch (System.ObjectDisposedException)
-                    {
-                        //do nothing
-                    }
-                }
-
-                (_validationTasks ??= [])[propertyName] = (task, cts);
-            }
-
-            #endregion
-
-            #region INotifyDataErrorInfo
-
-            /// <summary>
-            /// Occurs when the validation errors have changed for a property or for the entire object.
-            /// </summary>
-            public event System.EventHandler<System.ComponentModel.DataErrorsChangedEventArgs>{{nullable}} ErrorsChanged;
-            
-            System.Collections.IEnumerable System.ComponentModel.INotifyDataErrorInfo.GetErrors(string{{nullable}} propertyName)
-            {
-                if (propertyName is not { Length: > 0 } || _validationErrors is null || !_validationErrors.TryGetValue(propertyName, out var errors))
-                {
-                    return System.Array.Empty<string>();
-                }
-                return errors;
-            }
-
-            /// <summary>
-            /// Gets a value that indicates whether the entity has validation errors.
-            /// </summary>
-            public bool HasErrors => _validationErrors != null && System.Linq.Enumerable.Any(_validationErrors, (pair => pair.Value is { Count: > 0 }));
-
-            #endregion
-            """;
     }
 }

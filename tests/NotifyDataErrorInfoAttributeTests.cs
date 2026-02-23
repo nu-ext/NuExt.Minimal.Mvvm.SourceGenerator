@@ -5,7 +5,7 @@
         [Test]
         public void NotifyDataErrorInfoAttributesTest()
         {
-            var sources = NotifyDataErrorInfoAttributes.EventArgsCacheSources;
+            var sources = NotifyDataErrorInfoAttributes.Sources;
 
             foreach (var (source, expected) in sources)
             {

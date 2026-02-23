@@ -11,252 +11,14 @@ using System.Text;
 namespace Minimal.Mvvm.SourceGenerator
 {
     [Generator(LanguageNames.CSharp)]
-    public class Generator : IIncrementalGenerator
+    public partial class Generator : IIncrementalGenerator
     {
-        #region Internal Types
-
         private enum AttributeType
         {
             Notify,
             NotifyDataErrorInfo,
             Localize
         }
-
-        #endregion
-
-        #region Sources
-
-        internal static readonly (string hintName, string source)[] Sources = [
-            (hintName : "Minimal.Mvvm.AccessModifier.g.cs", source : """
-            /// <summary>
-            /// Enum to define access modifiers.
-            /// </summary>
-            internal enum AccessModifier
-            {
-                Default = 0,
-                Public = 6,
-                ProtectedInternal = 5,
-                Internal = 4,
-                Protected = 3,
-                PrivateProtected = 2,
-                Private = 1,
-            }
-            """),
-            (hintName : "Minimal.Mvvm.CustomAttributeAttribute.g.cs", source : """
-            using System;
-
-            namespace Minimal.Mvvm
-            {
-                /// <summary>
-                /// A custom attribute that allows specifying a fully qualified attribute name to be applied to a generated property.
-                /// </summary>
-                [AttributeUsage(AttributeTargets.Field | AttributeTargets.Method, Inherited = false, AllowMultiple = true)]
-                internal sealed class CustomAttributeAttribute : Attribute
-                {
-                    /// <summary>
-                    /// Initializes a new instance of the <see cref="CustomAttributeAttribute"/> class with the specified fully qualified attribute name.
-                    /// </summary>
-                    /// <param name="fullyQualifiedAttributeName">The fully qualified name of the attribute to apply.</param>
-                    public CustomAttributeAttribute(string fullyQualifiedAttributeName)
-                    {
-                        FullyQualifiedAttributeName = fullyQualifiedAttributeName;
-                    }
-            
-                    /// <summary>
-                    /// Gets the fully qualified name of the attribute to apply.
-                    /// </summary>
-                    public string FullyQualifiedAttributeName { get; }
-                }
-            }
-            """),
-            (hintName : "Minimal.Mvvm.LocalizeAttribute.g.cs", source : """
-            using System;
-            using System.Linq;
-
-            namespace Minimal.Mvvm
-            {
-                /// <summary>
-                /// Specifies that the target class should be localized using the provided JSON file. JSON file should be specified in AdditionalFiles.
-                /// </summary>
-                [AttributeUsage(AttributeTargets.Class, Inherited = false, AllowMultiple = false)]
-                internal sealed class LocalizeAttribute : Attribute
-                {
-                    /// <summary>
-                    /// Initializes a new instance of the <see cref="LocalizeAttribute"/> class with the specified JSON file name.
-                    /// </summary>
-                    /// <param name="jsonFileName">The JSON file name.</param>
-                    public LocalizeAttribute(string jsonFileName)
-                    {
-
-                    }
-
-                    public static string StringToValidPropertyName(string key)
-                    {
-                        var s = key.Trim();
-                        var validName = char.IsLetter(s[0]) ? char.ToUpper(s[0]).ToString() : "_";
-                        validName += new string(s.Skip(1).Select(ch => char.IsLetterOrDigit(ch) ? ch : '_').ToArray());
-                        return validName;
-                    }
-                }
-            }
-            """),
-            (hintName : "Minimal.Mvvm.NotifyAttribute.g.cs", source : """
-            using System;
-
-            namespace Minimal.Mvvm
-            {
-                /// <summary>
-                /// Attribute to mark a field or method for code generation of property and associated callback methods.
-                /// </summary>
-                [AttributeUsage(AttributeTargets.Field | AttributeTargets.Method, Inherited = false, AllowMultiple = false)]
-                internal sealed class NotifyAttribute : Attribute
-                {
-                    /// <summary>
-                    /// Initializes a new instance of the <see cref="NotifyAttribute"/> class.
-                    /// </summary>
-                    public NotifyAttribute()
-                    {
-                    }
-
-                    /// <summary>
-                    /// Initializes a new instance of the <see cref="NotifyAttribute"/> class with the specified property name.
-                    /// </summary>
-                    /// <param name="propertyName">The name of the property.</param>
-                    public NotifyAttribute(string propertyName)
-                    {
-                        PropertyName = propertyName;
-                    }
-
-                    /// <summary>
-                    /// Gets or sets the name of the property.
-                    /// </summary>
-                    public string PropertyName { get; set; }
-
-                    /// <summary>
-                    /// Gets or sets the name of the callback method.
-                    /// </summary>
-                    public string CallbackName { get; set; }
-
-                    /// <summary>
-                    /// Gets or sets a value indicating whether to prefer method with parameter for callback.
-                    /// </summary>
-                    public bool PreferCallbackWithParameter { get; set; }
-
-                    /// <summary>
-                    /// Gets or sets the access modifier for the getter.
-                    /// </summary>
-                    public AccessModifier Getter { get; set; }
-
-                    /// <summary>
-                    /// Gets or sets the access modifier for the setter.
-                    /// </summary>
-                    public AccessModifier Setter { get; set; }
-                }
-            }
-            """),
-             (hintName : "Minimal.Mvvm.AlsoNotifyAttribute.g.cs", source : """
-            using System;
-
-            namespace Minimal.Mvvm
-            {
-                /// <summary>
-                /// Attribute to specify additional properties to notify when the annotated property changes.
-                /// </summary>
-                [AttributeUsage(AttributeTargets.Field | AttributeTargets.Method, Inherited = false, AllowMultiple = true)]
-                internal sealed class AlsoNotifyAttribute : Attribute
-                {
-                    /// <summary>
-                    /// Initializes a new instance of the <see cref="AlsoNotifyAttribute"/> class with the specified property names.
-                    /// </summary>
-                    /// <param name="propertyNames">The names of the properties to notify.</param>
-                    public AlsoNotifyAttribute(params string[] propertyNames)
-                    {
-                        PropertyNames = propertyNames;
-                    }
-
-                    /// <summary>
-                    /// Gets the names of the properties to notify.
-                    /// </summary>
-                    public string[] PropertyNames { get; }
-                }
-            }
-            """),
-             (hintName : "Minimal.Mvvm.NotifyDataErrorInfoAttribute.g.cs", source : """
-            using System;
-
-            namespace Minimal.Mvvm
-            {
-                /// <summary>
-                /// Attribute to mark a class for code generation if it inherited from <see cref="System.ComponentModel.INotifyDataErrorInfo"/> .
-                /// </summary>
-                [AttributeUsage(AttributeTargets.Class, Inherited = false, AllowMultiple = false)]
-                internal sealed class NotifyDataErrorInfoAttribute : Attribute
-                {
-                    /// <summary>
-                    /// Initializes a new instance of the <see cref="NotifyDataErrorInfoAttribute"/> class.
-                    /// </summary>
-                    public NotifyDataErrorInfoAttribute()
-                    {
-
-                    }
-                }
-            }
-            """),
-            (hintName : "Minimal.Mvvm.UseCommandManagerAttribute.g.cs", source : """
-                using System;
-
-                namespace Minimal.Mvvm
-                {
-                    /// <summary>
-                    /// Enables automatic IRelayCommand.CanExecute re-evaluation for generated commands
-                    /// by subscribing to the WPF CommandManager.RequerySuggested event.
-                    /// </summary>
-                    [AttributeUsage(AttributeTargets.Field | AttributeTargets.Method, Inherited = false, AllowMultiple = false)]
-                    internal sealed class UseCommandManagerAttribute : Attribute
-                    {
-                        /// <summary>
-                        /// Initializes a new instance of the <see cref="UseCommandManagerAttribute"/> class.
-                        /// </summary>
-                        public UseCommandManagerAttribute()
-                        {
-
-                        }
-                    }
-                }
-                """),
-        ];
-
-        internal static readonly (string hintName, string source) RequerySuggestedEventManagerSource = ("Minimal.Mvvm.RequerySuggestedEventManager.g.cs", """
-            namespace Minimal.Mvvm
-            {
-                internal static class RequerySuggestedEventManager
-                {
-                    private static readonly global::System.Reflection.MethodInfo s_handlerMethod = typeof(RequerySuggestedEventManager).GetMethod(nameof(HandleRequerySuggested)) ?? throw new global::System.NullReferenceException();
-
-                    public static void HandleRequerySuggested(global::Minimal.Mvvm.IRelayCommand? command, object? sender, global::System.EventArgs e)
-                    {
-                        command?.RaiseCanExecuteChanged();
-                    }
-
-                    public static void AddHandler(global::Minimal.Mvvm.IRelayCommand? command)
-                    {
-                        if (command == null) return;
-                        var handler = (global::System.EventHandler)global::System.Delegate.CreateDelegate(typeof(global::System.EventHandler), command, s_handlerMethod);
-                        global::System.Windows.Input.CommandManager.RequerySuggested -= handler;
-                        global::System.Windows.Input.CommandManager.RequerySuggested += handler;
-                    }
-
-                    public static void RemoveHandler(global::Minimal.Mvvm.IRelayCommand? command)
-                    {
-                        if (command == null) return;
-                        var handler = (global::System.EventHandler)global::System.Delegate.CreateDelegate(typeof(global::System.EventHandler), command, s_handlerMethod);
-                        global::System.Windows.Input.CommandManager.RequerySuggested -= handler;
-                    }
-                }
-            }
-            """);
-
-        #endregion
 
         #region Pipelines
 
@@ -334,6 +96,12 @@ namespace Minimal.Mvvm.SourceGenerator
                                         continue;
                                     }
                                     break;
+                                case IPropertySymbol propertySymbol:
+                                    if (!NotifyPropertyGenerator.IsValidProperty(compilation, propertySymbol))
+                                    {
+                                        continue;
+                                    }
+                                    break;
                                 case IMethodSymbol methodSymbol:
                                     if (!NotifyPropertyGenerator.IsValidMethod(compilation, methodSymbol))
                                     {
@@ -380,7 +148,8 @@ namespace Minimal.Mvvm.SourceGenerator
 
                 var sb = new StringBuilder(2048);
                 var outerTypes = new List<string>(4);
-                var genCtx = new GeneratorContext(new HashSet<string>(StringComparer.Ordinal), new List<string>(4));
+                var genCtx = new GeneratorContext(compilation, new HashSet<string>(StringComparer.Ordinal), new List<string>(4), new List<string>(4), true);
+                var backingFieldNameCache = new HashSet<string>(StringComparer.Ordinal);
                 foreach (var typeInfo in typeInfos)
                 {
                     var containingType = typeInfo.Key;
@@ -393,7 +162,8 @@ namespace Minimal.Mvvm.SourceGenerator
 
                     sb.Clear();
                     using var writer = new IndentedTextWriter(new StringWriter(sb));
-                    writer.WriteSourceHeader(nullableContextOptions, containingNamespace);
+                    writer.WriteSourceHeader(nullableContextOptions);
+                    writer.WriteNamespaceStart(containingNamespace);
 
                     outerTypes.Clear();
                     for (var outerType = containingType; outerType != null; outerType = outerType.ContainingType)
@@ -408,17 +178,18 @@ namespace Minimal.Mvvm.SourceGenerator
                         writer.Indent++;
                     }
 
+                    backingFieldNameCache.Clear();
                     bool isFirst = true;
                     foreach (var group in members.GroupBy(m => m.attributeType))
                     {
                         switch (group.Key)
                         {
                             case AttributeType.Notify:
-                                NotifyPropertyGenerator.Generate(new NotifyPropertyGeneratorContext(writer, group.Select(m => m.member), compilation, genCtx, containingType.Name + '.', useEventArgsCache: true), ref isFirst);
+                                NotifyPropertyGenerator.Generate(genCtx, new NotifyPropertyGeneratorContext(writer, group.Select(m => m.member), containingType.Name + '.', backingFieldNameCache), ref isFirst);
                                 break;
 
                             case AttributeType.NotifyDataErrorInfo:
-                                NotifyDataErrorInfoGenerator.Generate(new NotifyDataErrorInfoGeneratorContext(writer, group.Select(m => m.member), compilation), ref isFirst);
+                                NotifyDataErrorInfoGenerator.Generate(genCtx, new NotifyDataErrorInfoGeneratorContext(writer, group.Select(m => m.member)), ref isFirst);
                                 break;
 
                             case AttributeType.Localize:
@@ -436,7 +207,7 @@ namespace Minimal.Mvvm.SourceGenerator
                         writer.WriteLine('}');
                     }
 
-                    writer.WriteSourceFinished(containingNamespace);
+                    writer.WriteSourceNamespaceEnd(containingNamespace);
                     var sourceText = sb.ToString();
 
                     sb.Clear();
@@ -456,21 +227,45 @@ namespace Minimal.Mvvm.SourceGenerator
                 {
                     sb.Clear();
                     using var writer = new IndentedTextWriter(new StringWriter(sb));
-                    writer.WriteSourceHeader(nullableContextOptions, EventArgsCacheGenerator.GeneratedNamespace);
+                    writer.WriteSourceHeader(nullableContextOptions);
+                    writer.WriteNamespaceStart(EventArgsCacheGenerator.GeneratedNamespace);
 
                     var properties = genCtx.CachedPropertyNames.ToList();
                     properties.Sort();
                     EventArgsCacheGenerator.Generate(new EventArgsCacheGeneratorContext(writer, properties));
 
-                    writer.WriteSourceFinished(EventArgsCacheGenerator.GeneratedNamespace);
+                    writer.WriteSourceNamespaceEnd(EventArgsCacheGenerator.GeneratedNamespace);
                     var sourceText = sb.ToString();
 
                     context.AddSource($"{EventArgsCacheGenerator.GeneratedNamespace}.{EventArgsCacheGenerator.GeneratedClassName}.g.cs", sourceText);
                 }
 
+                if (genCtx.NotifyDataErrorTypeNames.Count > 0)
+                {
+                    sb.Clear();
+                    using var writer = new IndentedTextWriter(new StringWriter(sb));
+                    writer.WriteSourceHeader(nullableContextOptions);
+                    writer.WriteNamespaceStart(DataErrorsChangedEventArgsCacheGenerator.GeneratedNamespace);
+
+                    var typeNames = genCtx.NotifyDataErrorTypeNames;
+                    typeNames.Sort();
+                    DataErrorsChangedEventArgsCacheGenerator.Generate(genCtx, new DataErrorsChangedEventArgsCacheGeneratorContext(writer, typeNames));
+
+                    writer.WriteSourceNamespaceEnd(DataErrorsChangedEventArgsCacheGenerator.GeneratedNamespace);
+                    var sourceText = sb.ToString();
+
+                    context.AddSource($"{DataErrorsChangedEventArgsCacheGenerator.GeneratedNamespace}.{DataErrorsChangedEventArgsCacheGenerator.GeneratedClassName}.g.cs", sourceText);
+                }
+
                 if (genCtx.CommandManagerPropertyNames.Count > 0)
                 {
-                    context.AddSource(RequerySuggestedEventManagerSource.hintName, RequerySuggestedEventManagerSource.source);
+                    sb.Clear();
+                    using var writer = new IndentedTextWriter(new StringWriter(sb));
+                    writer.WriteSourceHeader(nullableContextOptions);
+                    writer.InnerWriter.Write(RequerySuggestedEventManagerSource.source);
+                    var sourceText = sb.ToString();
+
+                    context.AddSource(RequerySuggestedEventManagerSource.hintName, sourceText);
                 }
             });
         }
@@ -479,11 +274,52 @@ namespace Minimal.Mvvm.SourceGenerator
 
         #region Helpers
 
-        public class GeneratorContext(HashSet<string> cachedPropertyNames, List<string> commandManagerPropertyNames)
-        {
-            internal HashSet<string> CachedPropertyNames => cachedPropertyNames;
 
+        private static readonly string[] s_newLineSeparators = ["\r\n", "\n"];
+
+        internal static List<(int indent, int length, string line)> GetSourceLines(string source)
+        {
+            var lines = source.Split(s_newLineSeparators, StringSplitOptions.None);
+            var (leadingWhitespace, leadingWhitespaceLength) = TextUtils.GetLeadingWhitespace(lines[0]);
+
+            var list = new List<(int indent, int length, string line)>();
+            for (int i = 0; i < lines.Length; i++)
+            {
+                if (leadingWhitespaceLength > 0 && lines[i].StartsWith(leadingWhitespace))
+                {
+                    lines[i] = lines[i].Substring(leadingWhitespaceLength);
+                }
+                int indent = 0;
+                int length = 0;
+                if (!string.IsNullOrWhiteSpace(lines[i]))
+                {
+                    var spaceCount = TextUtils.GetSpaceCount(lines[i]);
+#if DEBUG
+                    System.Diagnostics.Debug.Assert(spaceCount % 4 == 0);
+#endif
+                    indent = spaceCount / 4;
+                    lines[i] = lines[i].Trim();
+                    length = lines[i].Length;
+                }
+                list.Add((indent, length, lines[i]));
+            }
+            return list;
+        }
+
+        internal static bool IsNoTabsLine(string line)
+        {
+            return line.StartsWith("#if") || line.StartsWith("elif") || line.StartsWith("#else") || line.StartsWith("#endif");
+        }
+
+        internal readonly ref struct GeneratorContext(Compilation compilation, HashSet<string> cachedPropertyNames,
+            List<string> commandManagerPropertyNames, List<string> notifyDataErrorTypeNames, bool useEventArgsCache)
+        {
+            internal Compilation Compilation => compilation;
+            internal HashSet<string> CachedPropertyNames => cachedPropertyNames;
             internal List<string> CommandManagerPropertyNames => commandManagerPropertyNames;
+            internal List<string> NotifyDataErrorTypeNames => notifyDataErrorTypeNames;
+
+            internal readonly bool UseEventArgsCache = useEventArgsCache;
         }
 
         #endregion

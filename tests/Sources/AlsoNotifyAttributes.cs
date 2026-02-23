@@ -36,9 +36,9 @@
                                     get => _name;
                                     set
                                     {
-                                        if (SetProperty(ref _name, value))
+                                        if (SetProperty(ref _name, value, global::Minimal.Mvvm.EventArgsCache.NamePropertyChanged))
                                         {
-                                            RaisePropertyChanged("FullName");
+                                            RaisePropertyChanged(global::Minimal.Mvvm.EventArgsCache.FullNamePropertyChanged);
                                         }
                                     }
                                 }
@@ -48,9 +48,9 @@
                                     get => _surname;
                                     set
                                     {
-                                        if (SetProperty(ref _surname, value))
+                                        if (SetProperty(ref _surname, value, global::Minimal.Mvvm.EventArgsCache.SurnamePropertyChanged))
                                         {
-                                            RaisePropertyChanged("FullName");
+                                            RaisePropertyChanged(global::Minimal.Mvvm.EventArgsCache.FullNamePropertyChanged);
                                         }
                                     }
                                 }
@@ -60,9 +60,9 @@
                                     get => _middleName;
                                     set
                                     {
-                                        if (SetProperty(ref _middleName, value))
+                                        if (SetProperty(ref _middleName, value, global::Minimal.Mvvm.EventArgsCache.MiddleNamePropertyChanged))
                                         {
-                                            RaisePropertyChanged("FullName");
+                                            RaisePropertyChanged(global::Minimal.Mvvm.EventArgsCache.FullNamePropertyChanged);
                                         }
                                     }
                                 }
@@ -98,9 +98,9 @@
                                     get => _birthDate;
                                     set
                                     {
-                                        if (SetProperty(ref _birthDate, value))
+                                        if (SetProperty(ref _birthDate, value, global::Minimal.Mvvm.EventArgsCache.BirthDatePropertyChanged))
                                         {
-                                            RaisePropertiesChanged("Age", "YearsToRetirement");
+                                            RaisePropertiesChanged(global::Minimal.Mvvm.EventArgsCache.AgePropertyChanged, global::Minimal.Mvvm.EventArgsCache.YearsToRetirementPropertyChanged);
                                         }
                                     }
                                 }
@@ -143,9 +143,9 @@
                                    get => _salary;
                                    set
                                    {
-                                       if (SetProperty(ref _salary, value))
+                                       if (SetProperty(ref _salary, value, global::Minimal.Mvvm.EventArgsCache.SalaryPropertyChanged))
                                        {
-                                           RaisePropertiesChanged("Taxes", "NetSalary", "AnnualSalary");
+                                           RaisePropertiesChanged(global::Minimal.Mvvm.EventArgsCache.TaxesPropertyChanged, global::Minimal.Mvvm.EventArgsCache.NetSalaryPropertyChanged, global::Minimal.Mvvm.EventArgsCache.AnnualSalaryPropertyChanged);
                                        }
                                    }
                                }
@@ -155,9 +155,9 @@
                                    get => _taxRate;
                                    set
                                    {
-                                       if (SetProperty(ref _taxRate, value))
+                                       if (SetProperty(ref _taxRate, value, global::Minimal.Mvvm.EventArgsCache.TaxRatePropertyChanged))
                                        {
-                                           RaisePropertiesChanged("Taxes", "NetSalary", "AnnualSalary");
+                                           RaisePropertiesChanged(global::Minimal.Mvvm.EventArgsCache.TaxesPropertyChanged, global::Minimal.Mvvm.EventArgsCache.NetSalaryPropertyChanged, global::Minimal.Mvvm.EventArgsCache.AnnualSalaryPropertyChanged);
                                        }
                                    }
                                }
@@ -217,9 +217,9 @@
                                    get => _salary;
                                    set
                                    {
-                                       if (SetProperty(ref _salary, value, _salaryChangedCallback ??= OnSalaryChanged))
+                                       if (SetProperty(ref _salary, value, _salaryChangedCallback ??= OnSalaryChanged, global::Minimal.Mvvm.EventArgsCache.SalaryPropertyChanged))
                                        {
-                                           RaisePropertiesChanged("Taxes", "NetSalary", "AnnualSalary");
+                                           RaisePropertiesChanged(global::Minimal.Mvvm.EventArgsCache.TaxesPropertyChanged, global::Minimal.Mvvm.EventArgsCache.NetSalaryPropertyChanged, global::Minimal.Mvvm.EventArgsCache.AnnualSalaryPropertyChanged);
                                        }
                                    }
                                }
@@ -230,9 +230,9 @@
                                    get => _taxRate;
                                    set
                                    {
-                                       if (SetProperty(ref _taxRate, value, _taxRateChangedCallback ??= OnTaxRateChanged))
+                                       if (SetProperty(ref _taxRate, value, _taxRateChangedCallback ??= OnTaxRateChanged, global::Minimal.Mvvm.EventArgsCache.TaxRatePropertyChanged))
                                        {
-                                           RaisePropertiesChanged("Taxes", "NetSalary", "AnnualSalary");
+                                           RaisePropertiesChanged(global::Minimal.Mvvm.EventArgsCache.TaxesPropertyChanged, global::Minimal.Mvvm.EventArgsCache.NetSalaryPropertyChanged, global::Minimal.Mvvm.EventArgsCache.AnnualSalaryPropertyChanged);
                                        }
                                    }
                                }

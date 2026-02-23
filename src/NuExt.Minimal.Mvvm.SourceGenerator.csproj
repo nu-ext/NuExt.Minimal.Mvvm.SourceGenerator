@@ -12,11 +12,11 @@
     <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
     <PackageTags>nuext;minimal;mvvm;wpf;ui;windows;viewmodel;command;relaycommand;asynccommand;sourcegenerator;generator;async</PackageTags>
     <Description>This package allows you to generate boilerplate code at compile time specifically for ViewModels using the Minimal MVVM Framework, thereby streamlining your development process and reducing repetitive tasks.</Description>
-    <Version>0.7.0</Version>
+    <Version>0.7.1</Version>
     <RootNamespace>Minimal.Mvvm.SourceGenerator</RootNamespace>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageIcon>logo128.png</PackageIcon>
-    <PackageProjectUrl>https://github.com/IvanGit/NuExt.Minimal.Mvvm.SourceGenerator</PackageProjectUrl>
+    <PackageIcon>logo.png</PackageIcon>
+    <PackageProjectUrl>https://github.com/nu-ext/NuExt.Minimal.Mvvm.SourceGenerator</PackageProjectUrl>
   </PropertyGroup>
 
   <ItemGroup>
@@ -29,8 +29,8 @@
 	</ItemGroup>
 
   <ItemGroup>
-    <None Include="..\logo128.png" Pack="true" PackagePath="\" />
-    <None Include=".\..\README.md" Pack="true" PackagePath="\" />
+    <None Include="..\logo.png" Pack="true" PackagePath="\" />
+    <None Include="..\README.md" Pack="true" PackagePath="\" />
     <None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
     <None Include="$(PkgNewtonsoft_Json)\lib\netstandard2.0\Newtonsoft.Json.dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
   </ItemGroup>

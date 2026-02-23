@@ -38,14 +38,14 @@
                     public string Name
                     {
                         get => _name;
-                        set => SetProperty(ref _name, value);
+                        set => SetProperty(ref _name, value, global::Minimal.Mvvm.EventArgsCache.NamePropertyChanged);
                     }
 
                     [global::System.Text.Json.Serialization.JsonIgnore]
                     public string? Description
                     {
                         get => _description;
-                        set => SetProperty(ref _description, value);
+                        set => SetProperty(ref _description, value, global::Minimal.Mvvm.EventArgsCache.DescriptionPropertyChanged);
                     }
                 }
                 """ ),

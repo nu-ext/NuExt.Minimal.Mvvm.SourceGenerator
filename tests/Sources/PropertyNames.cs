@@ -11,6 +11,12 @@
                 public partial class MyModel : BindableBase
                 {
                     [Notify("MyName")]
+                    private static string _myName = null!;
+
+                    [Notify("MyName")]
+                    private readonly string _myname = null!;
+
+                    [Notify("MyName")]
                     private string _name = null!;
 
                     [Notify(PropertyName = nameof(MyDescription))]
@@ -18,6 +24,23 @@
 
                     [Notify("MyDescription", PropertyName = nameof(MyDescription2))]
                     private string? _description2;
+
+                    [Notify("MyName")]
+                    private partial string? Name { get; set; }
+
+                    [Notify("MyName")]
+                    private string Name2 { get; set; } = null!;
+
+                    [Notify("MyName")]
+                    private static string StaticName { get; set; } = null!;
+
+                    [Notify("MyName")]
+                    public static string StaticMyName => _myName;
+
+                    public void Stub()
+                    {
+                        _ = _myname;
+                    }
                 }
                 """,
                 expected : """
@@ -32,19 +55,26 @@
                     public string MyName
                     {
                         get => _name;
-                        set => SetProperty(ref _name, value);
+                        set => SetProperty(ref _name, value, global::Minimal.Mvvm.EventArgsCache.MyNamePropertyChanged);
                     }
 
                     public string? MyDescription
                     {
                         get => _description;
-                        set => SetProperty(ref _description, value);
+                        set => SetProperty(ref _description, value, global::Minimal.Mvvm.EventArgsCache.MyDescriptionPropertyChanged);
                     }
 
                     public string? MyDescription2
                     {
                         get => _description2;
-                        set => SetProperty(ref _description2, value);
+                        set => SetProperty(ref _description2, value, global::Minimal.Mvvm.EventArgsCache.MyDescription2PropertyChanged);
+                    }
+
+                    private string? _name1;
+                    private partial string? Name
+                    {
+                        get => _name1;
+                        set => SetProperty(ref _name1, value, global::Minimal.Mvvm.EventArgsCache.NamePropertyChanged);
                     }
                 }
                 """ ),

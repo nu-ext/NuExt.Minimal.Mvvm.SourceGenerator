@@ -1,4 +1,5 @@
 ﻿using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace Minimal.Mvvm.SourceGenerator
@@ -9,7 +10,7 @@ namespace Minimal.Mvvm.SourceGenerator
 
         private static bool IsValidVariableDeclarator(VariableDeclaratorSyntax variableDeclaratorSyntax)
         {
-            return variableDeclaratorSyntax is
+            if (variableDeclaratorSyntax is not
             {
                 Parent: VariableDeclarationSyntax
                 {
@@ -17,9 +18,21 @@ namespace Minimal.Mvvm.SourceGenerator
                     {
                         AttributeLists.Count: > 0,
                         Parent: ClassDeclarationSyntax
-                    }
+                    } fieldDeclarationSyntax
                 }
-            };
+            })
+            {
+                return false;
+            }
+
+            if (fieldDeclarationSyntax.Modifiers.Any(SyntaxKind.StaticKeyword) 
+                || fieldDeclarationSyntax.Modifiers.Any(SyntaxKind.ReadOnlyKeyword)
+                )
+            {
+                return false;
+            }
+
+            return true;
         }
 
         internal static bool IsValidField(Compilation compilation, IFieldSymbol fieldSymbol)
@@ -27,13 +40,8 @@ namespace Minimal.Mvvm.SourceGenerator
             return !fieldSymbol.IsReadOnly && IsValidContainingType(compilation, fieldSymbol.ContainingType);
         }
 
-        private static void GenerateForField(scoped NotifyPropertyGeneratorContext ctx, IFieldSymbol fieldSymbol, ref bool isFirst)
+        private static void GenerateForField(scoped Generator.GeneratorContext genCtx, scoped NotifyPropertyGeneratorContext ctx, IFieldSymbol fieldSymbol, ref bool isFirst)
         {
-            if (fieldSymbol.IsReadOnly)
-            {
-                return;
-            }
-
             var attributes = fieldSymbol.GetAttributes();
 
             var notifyAttribute = GetNotifyAttribute(attributes)!;
@@ -46,21 +54,21 @@ namespace Minimal.Mvvm.SourceGenerator
             var customAttributeData = GetCustomAttributeData(customAttributes);
             var useCommandManagerAttributeData = GetUseCommandManagerAttributeData(useCommandManagerAttribute);
 
-            var backingFieldName = fieldSymbol.Name;
+            var backingFieldName = ctx.AddBackingFieldName(fieldSymbol.Name);
             var propertyName = !string.IsNullOrWhiteSpace(notifyAttributeData.PropertyName) ? notifyAttributeData.PropertyName! : GetPropertyNameFromFieldName(backingFieldName);
 
             var propertyType = fieldSymbol.Type;
-
-            bool isCommand = GetIsCommand(ctx.Compilation, propertyType);
-
-            var fullyQualifiedTypeName = propertyType.ToDisplayString(SymbolDisplayFormats.FullyQualifiedTypeName);
-
             var callbackData = GetCallbackData(fieldSymbol.ContainingType, propertyType, notifyAttributeData);
 
-            var propCtx = new NotifyPropertyContext(notifyAttributeData, callbackData, customAttributeData, alsoNotifyAttributeData,
-                useCommandManagerAttributeData, isCommand, fieldSymbol.GetComment(), fullyQualifiedTypeName, propertyName, backingFieldName, false);
+            bool isCommand = GetIsCommand(genCtx.Compilation, propertyType);
+            var fullyQualifiedTypeName = propertyType.ToDisplayString(SymbolDisplayFormats.FullyQualifiedTypeName);
 
-            GenerateProperty(ctx, propCtx, ref isFirst);
+            var propCtx = new NotifyPropertyContext(notifyAttributeData, callbackData, customAttributeData, alsoNotifyAttributeData,
+                useCommandManagerAttributeData, isCommand, 
+                fieldSymbol.GetComment(), fullyQualifiedTypeName, isPartial: false,
+                propertyName, backingFieldName, generateBackingFieldName: false);
+
+            GenerateProperty(genCtx, ctx, propCtx, ref isFirst);
         }
 
         private static bool GetIsCommand(Compilation compilation, ITypeSymbol? propertyType)

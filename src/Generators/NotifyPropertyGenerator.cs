@@ -6,34 +6,55 @@ using System.Diagnostics;
 
 namespace Minimal.Mvvm.SourceGenerator
 {
-    internal readonly ref struct NotifyPropertyGeneratorContext(IndentedTextWriter writer, IEnumerable<ISymbol> members, Compilation compilation, Generator.GeneratorContext genCtx, string typePrefix, bool useEventArgsCache)
+    internal readonly ref struct NotifyPropertyGeneratorContext(IndentedTextWriter writer, IEnumerable<ISymbol> members, 
+        string typePrefix, HashSet<string> backingFieldNameCache)
     {
-        internal readonly Compilation Compilation = compilation;
-        internal readonly IEnumerable<ISymbol> Members = members;
-        internal readonly Generator.GeneratorContext Context = genCtx;
-        internal readonly string TypePrefix = typePrefix;
-        internal readonly bool UseEventArgsCache = useEventArgsCache;
         internal readonly IndentedTextWriter Writer = writer;
+        internal readonly IEnumerable<ISymbol> Members = members;
+        internal readonly string TypePrefix = typePrefix;
+
+        internal string AddBackingFieldName(string backingFieldName)
+        {
+            backingFieldNameCache.Add(backingFieldName);
+            return backingFieldName;
+        }
+
+        internal string GetOrAddBackingFieldName(string backingFieldName)
+        {
+            var original = backingFieldName;
+            int i = 0;
+            while (!backingFieldNameCache.Add(backingFieldName))
+            {
+                backingFieldName = original + ++i;
+            }
+            return backingFieldName;
+        }
     }
 
     internal partial struct NotifyPropertyGenerator
     {
         private readonly ref struct NotifyPropertyContext(NotifyAttributeData attributeData, CallbackData callbackData, 
             IEnumerable<CustomAttributeData> customAttributes, IEnumerable<AlsoNotifyAttributeData> alsoNotifyAttributes, 
-            UseCommandManagerAttributeData? useCommandManagerAttributeData, bool isCommand,
-            string[]? comment, string fullyQualifiedTypeName, string propertyName, string backingFieldName, bool generateBackingFieldName)
+            UseCommandManagerAttributeData useCommandManagerAttributeData, bool isCommand,
+            string[]? comment, string fullyQualifiedTypeName, bool isPartial,
+            string propertyName, string backingFieldName, bool generateBackingFieldName)
         {
-            internal readonly IEnumerable<AlsoNotifyAttributeData> AlsoNotifyAttributes = alsoNotifyAttributes;
             internal readonly NotifyAttributeData NotifyAttributeData = attributeData;
             internal readonly CallbackData CallbackData = callbackData;
-            internal readonly string[]? Comment = comment;
             internal readonly IEnumerable<CustomAttributeData> CustomAttributes = customAttributes;
-            internal readonly UseCommandManagerAttributeData? UseCommandManagerAttributeData = useCommandManagerAttributeData;
+            internal readonly IEnumerable<AlsoNotifyAttributeData> AlsoNotifyAttributes = alsoNotifyAttributes;
+
+            internal readonly UseCommandManagerAttributeData UseCommandManagerAttributeData = useCommandManagerAttributeData;
             internal readonly bool IsCommand = isCommand;
-            internal readonly bool GenerateBackingFieldName = generateBackingFieldName;
+
+            internal readonly string[]? Comment = comment;
+            internal readonly bool HasComment = comment is { Length: > 0 };
             internal readonly string FullyQualifiedTypeName = fullyQualifiedTypeName;
-            internal readonly string BackingFieldName = backingFieldName;
+            internal readonly bool IsPartial = isPartial;
+
             internal readonly string PropertyName = propertyName;
+            internal readonly string BackingFieldName = backingFieldName;
+            internal readonly bool GenerateBackingFieldName = generateBackingFieldName;
         }
 
         internal const string NotifyAttributeFullyQualifiedMetadataName = "Minimal.Mvvm.NotifyAttribute";
@@ -56,7 +77,7 @@ namespace Minimal.Mvvm.SourceGenerator
 
         private readonly record struct NotifyAttributeData(string? PropertyName, string? CallbackName, bool? PreferCallbackWithParameter, Accessibility PropertyAccessibility, Accessibility GetterAccessibility, Accessibility SetterAccessibility);
 
-        private readonly record struct UseCommandManagerAttributeData();
+        private readonly record struct UseCommandManagerAttributeData(bool IsValid);
 
         #region Pipeline
 
@@ -67,6 +88,7 @@ namespace Minimal.Mvvm.SourceGenerator
             return attributeTarget switch
             {
                 VariableDeclaratorSyntax v => IsValidVariableDeclarator(v),
+                PropertyDeclarationSyntax p => IsValidPropertyDeclaration(p),
                 MethodDeclarationSyntax m => IsValidMethodDeclaration(m),
                 _ => false,
             };
@@ -76,7 +98,7 @@ namespace Minimal.Mvvm.SourceGenerator
 
         #region Methods
 
-        private static bool IsValidContainingType(Compilation compilation, ITypeSymbol containingType)
+        internal static bool IsValidContainingType(Compilation compilation, ITypeSymbol containingType)
         {
             INamedTypeSymbol?[] baseTypeSymbols = [
                 compilation.GetTypeByMetadataName(BindableBaseFullyQualifiedMetadataName),
@@ -90,23 +112,27 @@ namespace Minimal.Mvvm.SourceGenerator
             return false;
         }
 
-        public static void Generate(scoped NotifyPropertyGeneratorContext ctx, ref bool isFirst)
+        public static void Generate(scoped Generator.GeneratorContext genCtx, scoped NotifyPropertyGeneratorContext ctx, ref bool isFirst)
         {
             foreach (var member in ctx.Members)
             {
                 switch (member)
                 {
                     case IFieldSymbol fieldSymbol:
-                        GenerateForField(ctx, fieldSymbol, ref isFirst);
+                        GenerateForField(genCtx, ctx, fieldSymbol, ref isFirst);
+                        break;
+                    case IPropertySymbol propertySymbol:
+                        GenerateForProperty(genCtx, ctx, propertySymbol, ref isFirst);
                         break;
                     case IMethodSymbol methodSymbol:
-                        GenerateForMethod(ctx, methodSymbol, ref isFirst);
+                        GenerateForMethod(genCtx, ctx, methodSymbol, ref isFirst);
                         break;
                 }
             }
         }
 
-        private static void GenerateProperty(scoped NotifyPropertyGeneratorContext genCtx, scoped NotifyPropertyContext propCtx, ref bool isFirst)
+        private static void GenerateProperty(scoped Generator.GeneratorContext genCtx, scoped NotifyPropertyGeneratorContext ctx, 
+            scoped NotifyPropertyContext propCtx, ref bool isFirst)
         {
             string nullable = genCtx.Compilation.Options.NullableContextOptions.HasFlag(NullableContextOptions.Annotations) ? "?" : "";
 
@@ -121,11 +147,11 @@ namespace Minimal.Mvvm.SourceGenerator
                 (alsoNotifyProperties ??= []).Add(alsoNotifyAttribute);
             }
 
-            bool useCommandManager = propCtx.UseCommandManagerAttributeData is not null && propCtx.IsCommand;
+            bool useCommandManager = propCtx.UseCommandManagerAttributeData.IsValid && propCtx.IsCommand;
 
             bool hasSetCondition = alsoNotifyProperties is { Count: > 0 } || useCommandManager;
 
-            var writer = genCtx.Writer;
+            var writer = ctx.Writer;
 
             if (!isFirst)
             {
@@ -161,9 +187,12 @@ namespace Minimal.Mvvm.SourceGenerator
 
             #region Comment
 
-            foreach (string line in propCtx.Comment ?? [])
+            if (propCtx.HasComment)
             {
-                writer.WriteLine($"/// {line}");
+                foreach (string line in propCtx.Comment!)
+                {
+                    writer.WriteLine($"/// {line}");
+                }
             }
 
             #endregion
@@ -184,6 +213,10 @@ namespace Minimal.Mvvm.SourceGenerator
             {
                 writer.Write("virtual ");
             }*/
+            if (propCtx.IsPartial)
+            {
+                writer.Write("partial ");
+            }
             writer.WriteLine($"{propCtx.FullyQualifiedTypeName} {propCtx.PropertyName}");
             writer.WriteLine('{'); //begin property
             writer.Indent++;
@@ -212,7 +245,7 @@ namespace Minimal.Mvvm.SourceGenerator
             }
 
             // SetProperty(ref storage, value, ... )
-            GenerateInvocationExpression(genCtx, propCtx, backingCallbackFieldName, useCommandManager);
+            GenerateInvocationExpression(genCtx, ctx, propCtx, backingCallbackFieldName, useCommandManager);
 
             if (hasSetCondition)
             {
@@ -220,7 +253,7 @@ namespace Minimal.Mvvm.SourceGenerator
                 writer.WriteLine('{'); //begin condition
                 writer.Indent++;
 
-                GenerateConditionBlock(genCtx, propCtx, alsoNotifyProperties, useCommandManager);
+                GenerateConditionBlock(genCtx, ctx, propCtx, alsoNotifyProperties, useCommandManager);
 
                 writer.Indent--;
                 writer.WriteLine('}'); //end condition
@@ -242,10 +275,10 @@ namespace Minimal.Mvvm.SourceGenerator
 
             return;
 
-            static void GenerateInvocationExpression(scoped NotifyPropertyGeneratorContext genCtx, scoped NotifyPropertyContext propCtx,
-                string? backingCallbackFieldName, bool useCommandManager)
+            static void GenerateInvocationExpression(scoped Generator.GeneratorContext genCtx, scoped NotifyPropertyGeneratorContext ctx, 
+                scoped NotifyPropertyContext propCtx, string? backingCallbackFieldName, bool useCommandManager)
             {
-                var writer = genCtx.Writer;
+                var writer = ctx.Writer;
 
                 // SetProperty(ref storage, value, changedCallback, PropertyChangedEventArgs)
                 // SetProperty(ref storage, value, PropertyChangedEventArgs)
@@ -270,7 +303,7 @@ namespace Minimal.Mvvm.SourceGenerator
                 {
                     // [, PropertyChangedEventArgs]
                     writer.Write($", {EventArgsCacheGenerator.GeneratedClassFullyQualifiedName}.{propCtx.PropertyName}PropertyChanged");
-                    genCtx.Context.CachedPropertyNames.Add(propCtx.PropertyName);
+                    genCtx.CachedPropertyNames.Add(propCtx.PropertyName);
                 }
 
                 if (useCommandManager)
@@ -281,9 +314,9 @@ namespace Minimal.Mvvm.SourceGenerator
                 writer.Write(')');//close bracket
             }
 
-            static void GenerateConditionBlock(scoped NotifyPropertyGeneratorContext genCtx, scoped NotifyPropertyContext propCtx, List<AlsoNotifyAttributeData>? alsoNotifyProperties, bool useCommandManager)
+            static void GenerateConditionBlock(scoped Generator.GeneratorContext genCtx, scoped NotifyPropertyGeneratorContext ctx, scoped NotifyPropertyContext propCtx, List<AlsoNotifyAttributeData>? alsoNotifyProperties, bool useCommandManager)
             {
-                var writer = genCtx.Writer;
+                var writer = ctx.Writer;
 
                 #region AlsoNotifyAttribute
                 if (alsoNotifyProperties is { Count: > 0 })
@@ -294,7 +327,7 @@ namespace Minimal.Mvvm.SourceGenerator
                         if (genCtx.UseEventArgsCache)
                         {
                             writer.WriteLine($"RaisePropertyChanged({EventArgsCacheGenerator.GeneratedClassFullyQualifiedName}.{propertyName}PropertyChanged);");
-                            genCtx.Context.CachedPropertyNames.Add(propertyName);
+                            genCtx.CachedPropertyNames.Add(propertyName);
                         }
                         else
                         {
@@ -311,7 +344,7 @@ namespace Minimal.Mvvm.SourceGenerator
                             if (genCtx.UseEventArgsCache)
                             {
                                 writer.Write($"{separator}{EventArgsCacheGenerator.GeneratedClassFullyQualifiedName}.{propertyName}PropertyChanged");
-                                genCtx.Context.CachedPropertyNames.Add(propertyName);
+                                genCtx.CachedPropertyNames.Add(propertyName);
                             }
                             else
                             {
@@ -329,7 +362,7 @@ namespace Minimal.Mvvm.SourceGenerator
                 {
                     writer.WriteLine("global::Minimal.Mvvm.RequerySuggestedEventManager.RemoveHandler(oldValue);");
                     writer.WriteLine("global::Minimal.Mvvm.RequerySuggestedEventManager.AddHandler(value);");
-                    genCtx.Context.CommandManagerPropertyNames.Add(genCtx.TypePrefix + propCtx.PropertyName);
+                    genCtx.CommandManagerPropertyNames.Add(ctx.TypePrefix + propCtx.PropertyName);
                 }
                 #endregion
             }
@@ -401,7 +434,7 @@ namespace Minimal.Mvvm.SourceGenerator
         {
             string? propertyName = null, callbackName = null;
             bool? preferCallbackWithParameter = null;
-            Accessibility propertyAccessibility, getterAccessibility = Accessibility.NotApplicable, setterAccessibility = Accessibility.NotApplicable;
+            Accessibility getterAccessibility = Accessibility.NotApplicable, setterAccessibility = Accessibility.NotApplicable;
             if (notifyAttribute.ConstructorArguments.Length > 0)
             {
                 foreach (var typedConstant in notifyAttribute.ConstructorArguments)
@@ -445,6 +478,15 @@ namespace Minimal.Mvvm.SourceGenerator
                 }
             }
 
+            (var propertyAccessibility, getterAccessibility, setterAccessibility) = GetAccessibility(getterAccessibility, setterAccessibility);
+
+            return new NotifyAttributeData(propertyName, callbackName, preferCallbackWithParameter, propertyAccessibility, getterAccessibility, setterAccessibility);
+        }
+
+        private static (Accessibility propertyAccessibility, Accessibility getterAccessibility, Accessibility setterAccessibility)
+            GetAccessibility(Accessibility getterAccessibility, Accessibility setterAccessibility)
+        {
+            Accessibility propertyAccessibility;
             if (getterAccessibility == Accessibility.Internal && setterAccessibility == Accessibility.Protected ||
                 getterAccessibility == Accessibility.Protected && setterAccessibility == Accessibility.Internal)
             {
@@ -466,8 +508,7 @@ namespace Minimal.Mvvm.SourceGenerator
                 propertyAccessibility = setterAccessibility;
                 setterAccessibility = Accessibility.NotApplicable;
             }
-
-            return new NotifyAttributeData(propertyName, callbackName, preferCallbackWithParameter, propertyAccessibility, getterAccessibility, setterAccessibility);
+            return (propertyAccessibility, getterAccessibility, setterAccessibility);
         }
 
         private static IEnumerable<AlsoNotifyAttributeData> GetAlsoNotifyAttributeData(IEnumerable<AttributeData> alsoNotifyAttributes)
@@ -544,10 +585,9 @@ namespace Minimal.Mvvm.SourceGenerator
             return (IEnumerable<CustomAttributeData>?)list ?? [];
         }
 
-        private static UseCommandManagerAttributeData? GetUseCommandManagerAttributeData(AttributeData? useCommandManagerAttribute)
+        private static UseCommandManagerAttributeData GetUseCommandManagerAttributeData(AttributeData? useCommandManagerAttribute)
         {
-            if (useCommandManagerAttribute is null) return null;
-            return new UseCommandManagerAttributeData();
+            return new UseCommandManagerAttributeData(useCommandManagerAttribute is not null);
         }
 
         private static string RemoveGlobalAlias(string fullyQualifiedMetadataName)

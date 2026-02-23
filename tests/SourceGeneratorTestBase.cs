@@ -15,7 +15,8 @@ namespace NuExt.Minimal.Mvvm.SourceGenerator.Tests
         protected static readonly string GeneratorName = typeof(Generator).Namespace!;
         protected static readonly Version GeneratorVersion = typeof(Generator).Assembly.GetName().Version!;
 
-        protected static async Task CompileAsync((string fileName, string hintName, string source, string expected, (string hintName, string expected)[] additionalFiles) context)
+        protected static async Task CompileAsync((string fileName, string hintName, string source, string expected, (string hintName, string expected)[] additionalFiles) context,
+            (string hintName, string expected)[]? additionalFiles = null)
         {
             var test = new CSharpSourceGeneratorTestBase();
             test.AddReferencedAssemblies();
@@ -25,7 +26,10 @@ namespace NuExt.Minimal.Mvvm.SourceGenerator.Tests
             test.AddGeneratedSources();
             test.AddExpectedSource(context.hintName, context.expected);
             test.AddAdditionalGeneratedSources(context.additionalFiles);
-            test.AddAdditionalGeneratedSources([Generator.RequerySuggestedEventManagerSource]);
+            if (additionalFiles != null)
+            {
+                test.AddAdditionalGeneratedSources(additionalFiles);
+            }
 
             await test.RunAsync();
         }
@@ -76,7 +80,7 @@ namespace NuExt.Minimal.Mvvm.SourceGenerator.Tests
         }
 
         protected static void MultipleAssert(CSharpCompilation? outputCompilation, ImmutableArray<Diagnostic> diagnostics,
-            GeneratorRunResult generatorResult, string? expectedSource, bool useEventArgsCache = true)
+            GeneratorRunResult generatorResult, string? expectedSource)
         {
             var output = outputCompilation!.SyntaxTrees.ToDictionary(tree => tree.FilePath, tree => tree.ToString());
 
@@ -90,7 +94,7 @@ namespace NuExt.Minimal.Mvvm.SourceGenerator.Tests
                 return;
             }
 
-            var generatedSource = generatorResult.GeneratedSources[generatorResult.GeneratedSources.Length - 1 - (useEventArgsCache ? 1 : 0)];
+            var generatedSource = generatorResult.GeneratedSources[7];
             var generatedSourceTreeText = generatedSource.SyntaxTree.ToString();
             var generatedSourceText = generatedSource.SourceText.ToString();
             Assert.That(generatedSourceTreeText, Is.EqualTo(generatedSourceText));
