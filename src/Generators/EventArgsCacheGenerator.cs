@@ -1,36 +1,35 @@
 ﻿using System.CodeDom.Compiler;
 
-namespace Minimal.Mvvm.SourceGenerator
+namespace Minimal.Mvvm.SourceGenerator;
+
+internal readonly ref struct EventArgsCacheGeneratorContext(IndentedTextWriter writer, List<string> propertyNames)
 {
-    internal readonly ref struct EventArgsCacheGeneratorContext(IndentedTextWriter writer, List<string> propertyNames)
+    internal readonly IndentedTextWriter Writer = writer;
+    internal readonly List<string> PropertyNames = propertyNames;
+}
+
+internal struct EventArgsCacheGenerator
+{
+    internal const string GeneratedNamespace = "Minimal.Mvvm";
+    internal const string GeneratedClassName = "EventArgsCache";
+    internal const string GeneratedClassFullyQualifiedName = $"global::{GeneratedNamespace}.{GeneratedClassName}";
+
+    #region Methods
+
+    public static void Generate(scoped EventArgsCacheGeneratorContext ctx)
     {
-        internal readonly IndentedTextWriter Writer = writer;
-        internal readonly List<string> PropertyNames = propertyNames;
-    }
+        ctx.Writer.WriteLine($"internal static partial class {GeneratedClassName}");
+        ctx.Writer.WriteLine("{");
+        ctx.Writer.Indent++;
 
-    internal struct EventArgsCacheGenerator
-    {
-        internal const string GeneratedNamespace = "Minimal.Mvvm";
-        internal const string GeneratedClassName = "EventArgsCache";
-        internal const string GeneratedClassFullyQualifiedName = $"global::{GeneratedNamespace}.{GeneratedClassName}";
-
-        #region Methods
-
-        public static void Generate(scoped EventArgsCacheGeneratorContext ctx)
+        foreach (var propertyName in ctx.PropertyNames)
         {
-            ctx.Writer.WriteLine($"internal static partial class {GeneratedClassName}");
-            ctx.Writer.WriteLine("{");
-            ctx.Writer.Indent++;
-
-            foreach (var propertyName in ctx.PropertyNames)
-            {
-                ctx.Writer.WriteLine($"""internal static readonly global::System.ComponentModel.PropertyChangedEventArgs {propertyName}PropertyChanged = new global::System.ComponentModel.PropertyChangedEventArgs("{propertyName}");""");
-            }
-
-            ctx.Writer.Indent--;
-            ctx.Writer.WriteLine("}");
+            ctx.Writer.WriteLine($"""internal static readonly global::System.ComponentModel.PropertyChangedEventArgs {propertyName}PropertyChanged = new global::System.ComponentModel.PropertyChangedEventArgs("{propertyName}");""");
         }
 
-        #endregion
+        ctx.Writer.Indent--;
+        ctx.Writer.WriteLine("}");
     }
+
+    #endregion
 }

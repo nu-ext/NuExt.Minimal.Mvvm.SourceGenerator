@@ -112,6 +112,7 @@ When a class is annotated with `[NotifyDataErrorInfo]`, the generator exposes he
 
 **Usage pattern (per property):**
 ```csharp
+[NotifyDataErrorInfo]
 public partial class LoginViewModel : ViewModelBase
 {
     private readonly CancellationTokenSource _cts = new();

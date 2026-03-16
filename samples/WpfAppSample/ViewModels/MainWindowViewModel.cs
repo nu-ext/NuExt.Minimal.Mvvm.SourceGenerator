@@ -1,8 +1,7 @@
 ﻿using Minimal.Mvvm;
 
-namespace WpfAppSample.ViewModels
+namespace WpfAppSample.ViewModels;
+
+internal class MainWindowViewModel : ViewModelBase
 {
-    internal class MainWindowViewModel : ViewModelBase
-    {
-    }
 }

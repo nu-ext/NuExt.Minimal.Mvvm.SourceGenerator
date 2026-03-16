@@ -7,7 +7,7 @@
 	"Error": "Error",
 	"Exit": "Exit",
 	"Login": "Login",
-	"Login failed. Check your credentials": "Login failed. Check your credentials.",
+	"Login failed. Check your credentials.": "Login failed. Check your credentials.",
 	"Password": "Password",
 	"Password is required": "Password is required.",
 	"Password must be at least Arg0 characters.": "Password must be at least {0} characters.",
@@ -15,6 +15,6 @@
 	"Sign in": "Sign in",
 	"This user is locked": "This user is locked.",
 	"User name": "User name",
-	"User name is required": "User name is required.",
-	"User name is too long (max Arg0)": "User name is too long (max {0})."
+	"User name is required.": "User name is required.",
+	"User name is too long (max Arg0).": "User name is too long (max {0})."
 }

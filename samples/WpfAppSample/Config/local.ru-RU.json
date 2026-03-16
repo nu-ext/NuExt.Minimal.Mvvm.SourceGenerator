@@ -7,14 +7,14 @@
 	"Error": "Ошибка",
 	"Exit": "Выход",
 	"Login": "Логин",
-	"Login failed. Check your credentials": "Не удалось войти. Проверьте параметры входа.",
+	"Login failed. Check your credentials.": "Не удалось войти. Проверьте параметры входа.",
 	"Password": "Пароль",
 	"Password is required.": "Необходимо указать пароль.",
-	"Password must be at least Arg0 characters": "Пароль должен быть не менее {0} символов.",
+	"Password must be at least Arg0 characters.": "Пароль должен быть не менее {0} символов.",
 	"Remember me": "Запомнить",
 	"Sign in": "Войти",
 	"This user is locked": "Пользователь заблокирован.",
 	"User name": "Имя пользователя",
-	"User name is required": "Необходимо указать имя пользователя.",
-	"User name is too long (max Arg0)": "Слишком длинное имя пользователя (макс {0})."
+	"User name is required.": "Необходимо указать имя пользователя.",
+	"User name is too long (max Arg0).": "Слишком длинное имя пользователя (макс {0})."
 }

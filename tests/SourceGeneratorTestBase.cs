@@ -1,144 +1,145 @@
-﻿using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp;
-using Minimal.Mvvm;
-using Minimal.Mvvm.SourceGenerator;
-using System.Collections.Immutable;
+﻿using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
+using System.Text;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.Text;
+using Minimal.Mvvm;
+using Minimal.Mvvm.SourceGenerator;
 
-namespace NuExt.Minimal.Mvvm.SourceGenerator.Tests
+namespace NuExt.Minimal.Mvvm.SourceGenerator.Tests;
+
+[SuppressMessage("Assertion", "NUnit2045:Use Assert.Multiple", Justification = "<Pending>")]
+internal abstract class SourceGeneratorTestBase
 {
-    [SuppressMessage("Assertion", "NUnit2045:Use Assert.Multiple", Justification = "<Pending>")]
-    internal abstract class SourceGeneratorTestBase
+    protected static readonly string GeneratorName = typeof(Generator).Namespace!;
+    protected static readonly Version GeneratorVersion = typeof(Generator).Assembly.GetName().Version!;
+
+    protected static async Task CompileAsync((string fileName, string hintName, string source, string expected, (string hintName, string expected)[] additionalFiles) context,
+        (string hintName, string expected)[]? additionalFiles = null)
     {
-        protected static readonly string GeneratorName = typeof(Generator).Namespace!;
-        protected static readonly Version GeneratorVersion = typeof(Generator).Assembly.GetName().Version!;
+        var test = new CSharpSourceGeneratorTestBase();
+        test.AddReferencedAssemblies();
 
-        protected static async Task CompileAsync((string fileName, string hintName, string source, string expected, (string hintName, string expected)[] additionalFiles) context,
-            (string hintName, string expected)[]? additionalFiles = null)
+        test.TestState.Sources.Add((typeof(Generator), context.fileName, SourceText.From(context.source, Encoding.UTF8, SourceHashAlgorithm.Sha256)));
+
+        test.AddGeneratedSources();
+        test.AddExpectedSource(context.hintName, context.expected);
+        test.AddAdditionalGeneratedSources(context.additionalFiles);
+        if (additionalFiles != null)
         {
-            var test = new CSharpSourceGeneratorTestBase();
-            test.AddReferencedAssemblies();
-
-            test.TestState.Sources.Add((context.fileName, context.source));
-
-            test.AddGeneratedSources();
-            test.AddExpectedSource(context.hintName, context.expected);
-            test.AddAdditionalGeneratedSources(context.additionalFiles);
-            if (additionalFiles != null)
-            {
-                test.AddAdditionalGeneratedSources(additionalFiles);
-            }
-
-            await test.RunAsync();
+            test.AddAdditionalGeneratedSources(additionalFiles);
         }
 
-        protected static CSharpCompilation Compile(string code, NullableContextOptions nullableContextOptions = NullableContextOptions.Enable)
-        {
-            var tree = CSharpSyntaxTree.ParseText(code);
+        await test.RunAsync();
+    }
 
-            var references =
+    protected static CSharpCompilation Compile(string code, NullableContextOptions nullableContextOptions = NullableContextOptions.Enable)
+    {
+        var tree = CSharpSyntaxTree.ParseText(code);
+
+        var references =
 #if NET10_0
-                Basic.Reference.Assemblies.Net100.References.All.Cast<MetadataReference>()
+            Basic.Reference.Assemblies.Net100.References.All.Cast<MetadataReference>()
 #elif NET9_0
-                Basic.Reference.Assemblies.Net90.References.All.Cast<MetadataReference>()
+            Basic.Reference.Assemblies.Net90.References.All.Cast<MetadataReference>()
 #elif NET8_0
-                Basic.Reference.Assemblies.Net80.References.All.Cast<MetadataReference>()
+            Basic.Reference.Assemblies.Net80.References.All.Cast<MetadataReference>()
 #elif NETFRAMEWORK
-                Basic.Reference.Assemblies.Net472.References.All.Cast<MetadataReference>().Concat([MetadataReference.CreateFromFile(typeof(System.Text.Json.JsonSerializer).GetTypeInfo().Assembly.Location)])
+            Basic.Reference.Assemblies.Net472.References.All.Cast<MetadataReference>().Concat([MetadataReference.CreateFromFile(typeof(System.Text.Json.JsonSerializer).GetTypeInfo().Assembly.Location)])
 #endif
-                    .Concat([
-                        MetadataReference.CreateFromFile(typeof(BindableBase).GetTypeInfo().Assembly.Location)
-                        ]);
+                .Concat([
+                    MetadataReference.CreateFromFile(typeof(BindableBase).GetTypeInfo().Assembly.Location)
+                    ]);
 
-            var compilation = CSharpCompilation.Create("HelloWorld.dll",
-                [tree],
-                references: references,
-                new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary,
-                    nullableContextOptions: nullableContextOptions));
-            return compilation;
-        }
+        var compilation = CSharpCompilation.Create("HelloWorld.dll",
+            [tree],
+            references: references,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary,
+                nullableContextOptions: nullableContextOptions));
+        return compilation;
+    }
 
-        protected static string GetExpectedSource(string? sourceTemplate)
+    protected static string GetExpectedSource(string? sourceTemplate)
+    {
+        return sourceTemplate != null ? sourceTemplate.Replace("[GeneratorVersion]", GeneratorVersion.ToString()).Replace("[GeneratorName]", GeneratorName) : "";
+    }
+
+    protected static List<string> GetSourceLines(string generatedSource)
+    {
+        var result = new List<string>();
+        foreach (var line in generatedSource.Split(["\r\n", "\n"], StringSplitOptions.RemoveEmptyEntries))
         {
-            return sourceTemplate != null ? sourceTemplate.Replace("[GeneratorVersion]", GeneratorVersion.ToString()).Replace("[GeneratorName]", GeneratorName) : "";
-        }
-
-        protected static List<string> GetSourceLines(string generatedSource)
-        {
-            var result = new List<string>();
-            foreach (var line in generatedSource.Split(["\r\n", "\n"], StringSplitOptions.RemoveEmptyEntries))
+            if (string.IsNullOrWhiteSpace(line))
             {
-                if (string.IsNullOrWhiteSpace(line))
-                {
-                    continue;
-                }
-                result.Add(line.TrimEnd());
+                continue;
             }
-            return result;
+            result.Add(line.TrimEnd());
         }
+        return result;
+    }
 
-        protected static void MultipleAssert(CSharpCompilation? outputCompilation, ImmutableArray<Diagnostic> diagnostics,
-            GeneratorRunResult generatorResult, string? expectedSource)
+    protected static void MultipleAssert(CSharpCompilation? outputCompilation, ImmutableArray<Diagnostic> diagnostics,
+        GeneratorRunResult generatorResult, string? expectedSource)
+    {
+        var output = outputCompilation!.SyntaxTrees.ToDictionary(tree => tree.FilePath, tree => tree.ToString());
+
+        Assert.That(outputCompilation, Is.Not.Null);
+
+        if (string.IsNullOrEmpty(expectedSource))
         {
-            var output = outputCompilation!.SyntaxTrees.ToDictionary(tree => tree.FilePath, tree => tree.ToString());
-
-            Assert.That(outputCompilation, Is.Not.Null);
-
-            if (string.IsNullOrEmpty(expectedSource))
-            {
-                Assert.That(diagnostics.IsEmpty, Is.True);// there were no diagnostics created by the generators
-                Assert.That(generatorResult.Diagnostics.IsEmpty, Is.True);
-                Assert.That(generatorResult.Exception, Is.Null);
-                return;
-            }
-
-            var generatedSource = generatorResult.GeneratedSources[7];
-            var generatedSourceTreeText = generatedSource.SyntaxTree.ToString();
-            var generatedSourceText = generatedSource.SourceText.ToString();
-            Assert.That(generatedSourceTreeText, Is.EqualTo(generatedSourceText));
-
             Assert.That(diagnostics.IsEmpty, Is.True);// there were no diagnostics created by the generators
-            var allDiagnostics = outputCompilation.GetDiagnostics();
-            Assert.That(allDiagnostics.IsEmpty, Is.True); // verify the compilation with the added source has no diagnostics
-
-            Assert.That(generatorResult.Diagnostics.IsEmpty);
+            Assert.That(generatorResult.Diagnostics.IsEmpty, Is.True);
             Assert.That(generatorResult.Exception, Is.Null);
-
-            var generatedSourceLines = GetSourceLines(generatedSourceTreeText);
-            var expectedSourceLines = GetSourceLines(expectedSource!);
-
-            Assert.That(generatedSourceLines, Is.EqualTo(expectedSourceLines));
+            return;
         }
 
-        protected static (CSharpCompilation? outputCompilation, ImmutableArray<Diagnostic> diagnostics, GeneratorRunResult generatorResult) RunGenerator(CSharpCompilation compilation)
+        var generatedSource = generatorResult.GeneratedSources[7];
+        var generatedSourceTreeText = generatedSource.SyntaxTree.ToString();
+        var generatedSourceText = generatedSource.SourceText.ToString();
+        Assert.That(generatedSourceTreeText, Is.EqualTo(generatedSourceText));
+
+        Assert.That(diagnostics.IsEmpty, Is.True);// there were no diagnostics created by the generators
+        var allDiagnostics = outputCompilation.GetDiagnostics();
+        Assert.That(allDiagnostics.IsEmpty, Is.True); // verify the compilation with the added source has no diagnostics
+
+        Assert.That(generatorResult.Diagnostics.IsEmpty);
+        Assert.That(generatorResult.Exception, Is.Null);
+
+        var generatedSourceLines = GetSourceLines(generatedSourceTreeText);
+        var expectedSourceLines = GetSourceLines(expectedSource!);
+
+        Assert.That(generatedSourceLines, Is.EqualTo(expectedSourceLines));
+    }
+
+    protected static (CSharpCompilation? outputCompilation, ImmutableArray<Diagnostic> diagnostics, GeneratorRunResult generatorResult) RunGenerator(CSharpCompilation compilation)
+    {
+        return RunGenerator(compilation, []);
+    }
+
+    protected static (CSharpCompilation? outputCompilation, ImmutableArray<Diagnostic> diagnostics, GeneratorRunResult generatorResult) RunGenerator(CSharpCompilation compilation, ImmutableArray<AdditionalText> additionalTexts)
+    {
+        IIncrementalGenerator generator = new Generator();
+        var sourceGenerator = generator.AsSourceGenerator();
+
+        // Create the driver that will control the generation, passing in our generator
+        GeneratorDriver driver = CSharpGeneratorDriver.Create(sourceGenerator);
+
+        if (additionalTexts != null && additionalTexts.Length > 0)
         {
-            return RunGenerator(compilation, []);
+            driver = driver.AddAdditionalTexts(additionalTexts);
         }
 
-        protected static (CSharpCompilation? outputCompilation, ImmutableArray<Diagnostic> diagnostics, GeneratorRunResult generatorResult) RunGenerator(CSharpCompilation compilation, ImmutableArray<AdditionalText> additionalTexts)
-        {
-            IIncrementalGenerator generator = new Generator();
-            var sourceGenerator = generator.AsSourceGenerator();
+        // Run the generation pass
+        // (Note: the generator driver itself is immutable, and all calls return an updated version of the driver that you should use for subsequent calls)
+        driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out var outputCompilation, out var diagnostics);
 
-            // Create the driver that will control the generation, passing in our generator
-            GeneratorDriver driver = CSharpGeneratorDriver.Create(sourceGenerator);
+        GeneratorDriverRunResult runResult = driver.GetRunResult();
+        Debug.Assert(runResult.Results.Length == 1);
+        GeneratorRunResult generatorResult = runResult.Results[0];
 
-            if (additionalTexts != null && additionalTexts.Length > 0)
-            {
-                driver = driver.AddAdditionalTexts(additionalTexts);
-            }
-
-            // Run the generation pass
-            // (Note: the generator driver itself is immutable, and all calls return an updated version of the driver that you should use for subsequent calls)
-            driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out var outputCompilation, out var diagnostics);
-
-            GeneratorDriverRunResult runResult = driver.GetRunResult();
-            Debug.Assert(runResult.Results.Length == 1);
-            GeneratorRunResult generatorResult = runResult.Results[0];
-
-            return (outputCompilation as CSharpCompilation, diagnostics, generatorResult);
-        }
+        return (outputCompilation as CSharpCompilation, diagnostics, generatorResult);
     }
 }

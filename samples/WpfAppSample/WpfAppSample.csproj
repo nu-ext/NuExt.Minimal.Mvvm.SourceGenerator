@@ -4,13 +4,13 @@
 		<OutputType>WinExe</OutputType>
 		<TargetFrameworks>net10.0-windows;net9.0-windows;net8.0-windows;net48;net462</TargetFrameworks>
 		<Nullable>enable</Nullable>
-		<ImplicitUsings>disable</ImplicitUsings>
+		<ImplicitUsings>enable</ImplicitUsings>
 		<UseWPF>true</UseWPF>
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="NuExt.Minimal.Mvvm" Version="0.7.1" />
-		<PackageReference Include="System.Text.Json" Version="10.0.3" />
+		<PackageReference Include="NuExt.Minimal.Mvvm" Version="0.7.3" />
+		<PackageReference Include="System.Text.Json" Version="10.0.5" />
 	</ItemGroup>
 
 	<ItemGroup>

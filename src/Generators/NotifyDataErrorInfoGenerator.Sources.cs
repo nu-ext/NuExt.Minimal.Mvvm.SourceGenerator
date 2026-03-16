@@ -1,8 +1,8 @@
-﻿namespace Minimal.Mvvm.SourceGenerator
+﻿namespace Minimal.Mvvm.SourceGenerator;
+
+partial struct NotifyDataErrorInfoGenerator
 {
-    partial struct NotifyDataErrorInfoGenerator
-    {
-        private static string GetCodeSource(string nullable, string eventArgsCache, string dataErrorsChangedEventArgsCache) => $$"""
+    private static string GetCodeSource(string nullable, string eventArgsCache, string dataErrorsChangedEventArgsCache) => $$"""
         #region INotifyDataErrorInfo validation
 
         private global::System.Collections.Concurrent.ConcurrentDictionary<string, global::System.Collections.Generic.List<string>>{{nullable}} _validationErrors;
@@ -701,5 +701,4 @@
 
         #endregion
 """;
-    }
 }

@@ -1,136 +1,135 @@
 ﻿using Minimal.Mvvm.SourceGenerator;
 
-namespace NuExt.Minimal.Mvvm.SourceGenerator.Tests
+namespace NuExt.Minimal.Mvvm.SourceGenerator.Tests;
+
+internal class NotifyAttributeTests : SourceGeneratorTestBase
 {
-    internal class NotifyAttributeTests : SourceGeneratorTestBase
+    [Test]
+    public void NotifyAttributeAlsoNotifyAttributesTest()
     {
-        [Test]
-        public void NotifyAttributeAlsoNotifyAttributesTest()
-        {
-            var sources = AlsoNotifyAttributes.Sources;
+        var sources = AlsoNotifyAttributes.Sources;
 
-            foreach (var (source, expected) in sources)
-            {
-                var compilation = Compile(source);
-                var (outputCompilation, diagnostics, generatorResult) = RunGenerator(compilation);
-                MultipleAssert(outputCompilation, diagnostics, generatorResult, GetExpectedSource(expected));
-            }
+        foreach (var (source, expected) in sources)
+        {
+            var compilation = Compile(source);
+            var (outputCompilation, diagnostics, generatorResult) = RunGenerator(compilation);
+            MultipleAssert(outputCompilation, diagnostics, generatorResult, GetExpectedSource(expected));
         }
+    }
 
-        [Test]
-        public void NotifyAttributePropertyNamesTest()
+    [Test]
+    public void NotifyAttributePropertyNamesTest()
+    {
+        var sources = PropertyNames.Sources;
+
+        foreach (var (source, expected) in sources)
         {
-            var sources = PropertyNames.Sources;
-
-            foreach (var (source, expected) in sources)
-            {
-                var compilation = Compile(source);
-                var (outputCompilation, diagnostics, generatorResult) = RunGenerator(compilation);
-                MultipleAssert(outputCompilation, diagnostics, generatorResult, GetExpectedSource(expected));
-            }
+            var compilation = Compile(source);
+            var (outputCompilation, diagnostics, generatorResult) = RunGenerator(compilation);
+            MultipleAssert(outputCompilation, diagnostics, generatorResult, GetExpectedSource(expected));
         }
+    }
 
-        [Test]
-        public void NotifyAttributeAccessModifiersTest()
+    [Test]
+    public void NotifyAttributeAccessModifiersTest()
+    {
+        var sources = AccessModifiers.Sources;
+
+        foreach (var (source, expected) in sources)
         {
-            var sources = AccessModifiers.Sources;
-
-            foreach (var (source, expected) in sources)
-            {
-                var compilation = Compile(source);
-                var (outputCompilation, diagnostics, generatorResult) = RunGenerator(compilation);
-                MultipleAssert(outputCompilation, diagnostics, generatorResult, GetExpectedSource(expected));
-            }
+            var compilation = Compile(source);
+            var (outputCompilation, diagnostics, generatorResult) = RunGenerator(compilation);
+            MultipleAssert(outputCompilation, diagnostics, generatorResult, GetExpectedSource(expected));
         }
+    }
 
-        [Test]
-        public void NotifyPartialPropertiesTest()
+    [Test]
+    public void NotifyPartialPropertiesTest()
+    {
+        var sources = PartialProperties.Sources;
+
+        foreach (var (source, expected) in sources)
         {
-            var sources = PartialProperties.Sources;
-
-            foreach (var (source, expected) in sources)
-            {
-                var compilation = Compile(source);
-                var (outputCompilation, diagnostics, generatorResult) = RunGenerator(compilation);
-                MultipleAssert(outputCompilation, diagnostics, generatorResult, GetExpectedSource(expected));
-            }
+            var compilation = Compile(source);
+            var (outputCompilation, diagnostics, generatorResult) = RunGenerator(compilation);
+            MultipleAssert(outputCompilation, diagnostics, generatorResult, GetExpectedSource(expected));
         }
+    }
 
-        [Test]
-        public void NotifyAttributeCallbacksTest()
+    [Test]
+    public void NotifyAttributeCallbacksTest()
+    {
+        var sources = Callbacks.Sources;
+
+        foreach (var (source, expected) in sources)
         {
-            var sources = Callbacks.Sources;
-
-            foreach (var (source, expected) in sources)
-            {
-                var compilation = Compile(source);
-                var (outputCompilation, diagnostics, generatorResult) = RunGenerator(compilation);
-                MultipleAssert(outputCompilation, diagnostics, generatorResult, GetExpectedSource(expected));
-            }
+            var compilation = Compile(source);
+            var (outputCompilation, diagnostics, generatorResult) = RunGenerator(compilation);
+            MultipleAssert(outputCompilation, diagnostics, generatorResult, GetExpectedSource(expected));
         }
+    }
 
-        [Test]
-        public void NotifyAttributeCustomAttributesTest()
+    [Test]
+    public void NotifyAttributeCustomAttributesTest()
+    {
+        var sources = CustomAttributes.Sources;
+
+        foreach (var (source, expected) in sources)
         {
-            var sources = CustomAttributes.Sources;
-
-            foreach (var (source, expected) in sources)
-            {
-                var compilation = Compile(source);
-                var (outputCompilation, diagnostics, generatorResult) = RunGenerator(compilation);
-                MultipleAssert(outputCompilation, diagnostics, generatorResult, GetExpectedSource(expected));
-            }
+            var compilation = Compile(source);
+            var (outputCompilation, diagnostics, generatorResult) = RunGenerator(compilation);
+            MultipleAssert(outputCompilation, diagnostics, generatorResult, GetExpectedSource(expected));
         }
+    }
 
-        [Test]
-        public void NotifyAttributeCommandsTest()
+    [Test]
+    public void NotifyAttributeCommandsTest()
+    {
+        var sources = Commands.Sources;
+
+        foreach (var (source, expected) in sources)
         {
-            var sources = Commands.Sources;
-
-            foreach (var (source, expected) in sources)
-            {
-                var compilation = Compile(source);
-                var (outputCompilation, diagnostics, generatorResult) = RunGenerator(compilation);
-                MultipleAssert(outputCompilation, diagnostics, generatorResult, GetExpectedSource(expected));
-            }
+            var compilation = Compile(source);
+            var (outputCompilation, diagnostics, generatorResult) = RunGenerator(compilation);
+            MultipleAssert(outputCompilation, diagnostics, generatorResult, GetExpectedSource(expected));
         }
+    }
 
-        [Test]
-        public void NotifyAttributeCancellableCommandsTest()
+    [Test]
+    public void NotifyAttributeCancellableCommandsTest()
+    {
+        var sources = Commands.CancellationSources;
+
+        foreach (var (source, expected) in sources)
         {
-            var sources = Commands.CancellationSources;
-
-            foreach (var (source, expected) in sources)
-            {
-                var compilation = Compile(source);
-                var (outputCompilation, diagnostics, generatorResult) = RunGenerator(compilation);
-                MultipleAssert(outputCompilation, diagnostics, generatorResult, GetExpectedSource(expected));
-            }
+            var compilation = Compile(source);
+            var (outputCompilation, diagnostics, generatorResult) = RunGenerator(compilation);
+            MultipleAssert(outputCompilation, diagnostics, generatorResult, GetExpectedSource(expected));
         }
+    }
 
-        [Test]
-        public async Task UseCommandManagerCommandsTest()
+    [Test]
+    public async Task UseCommandManagerCommandsTest()
+    {
+        var sources = Commands.UseCommandManagerSources;
+
+        (string hintName, string expected) = Generator.RequerySuggestedEventManagerSource;
+
+        expected = """
+            // <auto-generated>
+            //     Auto-generated by [GeneratorName] [GeneratorVersion]
+            // </auto-generated>
+            
+            #nullable enable
+            
+
+            """ + expected;
+
+        (string hintName, string expected)[] additionalFiles = [(hintName, expected)];
+
+        foreach (var source in sources)
         {
-            var sources = Commands.UseCommandManagerSources;
-
-            (string hintName, string expected) = Generator.RequerySuggestedEventManagerSource;
-
-            expected = """
-                // <auto-generated>
-                //     Auto-generated by [GeneratorName] [GeneratorVersion]
-                // </auto-generated>
-                
-                #nullable enable
-                
-
-                """ + expected;
-
-            (string hintName, string expected)[] additionalFiles = [(hintName, expected)];
-
-            foreach (var source in sources)
-            {
-                await CompileAsync(source, additionalFiles);
-            }
+            await CompileAsync(source, additionalFiles).ConfigureAwait(false);
         }
     }
 }
