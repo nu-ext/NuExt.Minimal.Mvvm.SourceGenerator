@@ -3,6 +3,7 @@
 `NuExt.Minimal.Mvvm.SourceGenerator` is a Roslyn source generator for the lightweight MVVM framework [NuExt.Minimal.Mvvm](https://github.com/nu-ext/NuExt.Minimal.Mvvm). It emits boilerplate for properties, commands, validation, and localization **at compile time**, so you can focus on app logic.
 
 [![NuGet](https://img.shields.io/nuget/v/NuExt.Minimal.Mvvm.SourceGenerator.svg)](https://www.nuget.org/packages/NuExt.Minimal.Mvvm.SourceGenerator)
+[![Ask DeepWiki](https://img.shields.io/badge/Ask-DeepWiki-blue)](https://deepwiki.com/nu-ext/NuExt.Minimal.Mvvm.SourceGenerator)
 [![Build](https://github.com/nu-ext/NuExt.Minimal.Mvvm.SourceGenerator/actions/workflows/ci.yml/badge.svg)](https://github.com/nu-ext/NuExt.Minimal.Mvvm.SourceGenerator/actions/workflows/ci.yml)
 [![License](https://img.shields.io/github/license/nu-ext/NuExt.Minimal.Mvvm.SourceGenerator?label=license)](https://github.com/nu-ext/NuExt.Minimal.Mvvm.SourceGenerator/blob/main/LICENSE)
 [![Downloads](https://img.shields.io/nuget/dt/NuExt.Minimal.Mvvm.SourceGenerator.svg)](https://www.nuget.org/packages/NuExt.Minimal.Mvvm.SourceGenerator)
