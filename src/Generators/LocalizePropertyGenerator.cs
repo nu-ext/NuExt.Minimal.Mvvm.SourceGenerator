@@ -109,10 +109,8 @@ internal struct LocalizePropertyGenerator
 
     private static string EscapeString(string value)
     {
-        var s = new XElement("t", value).LastNode.ToString();
+        var s = new XText(value).ToString();
         s = s
-            //.Replace("\"", "&quot;")
-            //.Replace("'", "&apos;")
             .Replace("\r\n", "\\r\\n")
             .Replace("\r", "\\r")
             .Replace("\n", "\\n");

@@ -10,38 +10,42 @@
 
 ## Requirements
 
-- **.NET Standard 2.0+, .NET 8+, .NET Framework 4.6.2+**
-- **Language**: C# 12+
-- Works with: `NuExt.Minimal.Mvvm` (core) and optional UI integrations (`…Wpf`, `…MahApps.Metro`).
+- **Consumer target frameworks:** .NET Standard 2.0/2.1, .NET 8/9/10, and .NET Framework 4.6.2+
+- **Language:** C# 12+
+- **Core package:** `NuExt.Minimal.Mvvm` or a compatible UI integration package
 
 ## Features
 
-- **Properties & commands**
-  - Generates properties (change notification) from backing fields / partial properties
-  - Generates command properties from methods (sync/async)
-  - Emits cached event args for zero‑alloc hot paths
+- **Properties and commands**
+  - Generates observable properties from backing fields and partial properties.
+  - Generates command properties from synchronous and asynchronous methods.
+  - Emits cached event arguments for allocation-free notification paths.
+  - Initializes generated backing fields for non-nullable partial `string` properties with `string.Empty`.
+
 - **Validation (`INotifyDataErrorInfo`)**
-  - Thread‑safe store (per‑scope lists in `ConcurrentDictionary`)
-  - **Copy‑on‑write** updates + CAS; safe for UI enumeration
-  - **Scopes**: property‑level and entity‑level (entity is **`null` or `""`** across all APIs)
-  - Helpers: `HasErrorsFor(scope)`, `GetErrors(scope)`, `GetErrorsSnapshot()`
+  - Uses thread-safe, copy-on-write error storage.
+  - Supports property-level and entity-level validation scopes.
+  - Provides synchronous and asynchronous validation helpers.
+
 - **WPF command requery**
-  - `[UseCommandManager]` wires generated command to `CommandManager.RequerySuggested`
+  - `[UseCommandManager]` connects generated command properties to `CommandManager.RequerySuggested`.
+
 - **Localization**
-  - `[Localize]` populates a static class from a JSON file (provided via `AdditionalFiles`)
-- **Custom attributes**
-  - `[AlsoNotify]` to raise extra `PropertyChanged`
-  - `[CustomAttribute]` to apply an attribute to a generated member
+  - `[Localize]` generates localization properties from JSON files provided through `AdditionalFiles`.
 
-## Attributes (summary)
+- **Generated member customization**
+  - `[AlsoNotify]` raises notifications for related properties.
+  - `[CustomAttribute]` applies attributes to generated members.
 
-- **`Minimal.Mvvm.NotifyAttribute`**: Generates a property (from a field or partial property) or a command property (from a method).  
-  Options: `PropertyName`, `CallbackName`, `PreferCallbackWithParameter`, `Getter`, `Setter`.
-- **`Minimal.Mvvm.AlsoNotifyAttribute`**: Notifies additional properties when the annotated property changes.
-- **`Minimal.Mvvm.CustomAttributeAttribute`**: Specifies a fully qualified attribute name to be applied to a generated property.
-- **`Minimal.Mvvm.UseCommandManagerAttribute`**: Enables automatic `CanExecute` reevaluation for the generated command property (WPF only).
-- **`Minimal.Mvvm.NotifyDataErrorInfoAttribute`**: Generates validation infrastructure for `INotifyDataErrorInfo`.
-- **`Minimal.Mvvm.LocalizeAttribute`**: Localizes the target class using the provided JSON file (MSBuild `AdditionalFiles`).
+## Attributes
+
+- **`[Notify]`**: Generates a property from a field or partial property, or a command property from a method.
+  - **Options:** `PropertyName`, `CallbackName`, `PreferCallbackWithParameter`, `Getter`, `Setter`.
+- **`[AlsoNotify]`**: Notifies additional properties when the annotated property changes.
+- **`[CustomAttribute]`**: Applies an attribute to a generated member.
+- **`[UseCommandManager]`**: Enables automatic `CanExecute` reevaluation for the generated command property in WPF.
+- **`[NotifyDataErrorInfo]`**: Generates validation infrastructure for `INotifyDataErrorInfo`.
+- **`[Localize]`**: Generates localization members from a JSON file provided through MSBuild `AdditionalFiles`.
 
 ## Install
 
@@ -71,7 +75,11 @@ public partial class PersonModel : BindableBase
 
     public string FullName => $"{_surname} {_name}";
 
-    // Generates IAsyncCommand<string?>? ShowInfoCommand
+    public PersonModel()
+    {
+        ShowInfoCommand = new AsyncCommand<string?>(ShowInfoAsync);
+    }
+
     [Notify("ShowInfoCommand"), UseCommandManager]
     [CustomAttribute("System.Text.Json.Serialization.JsonIgnore")]
     private async Task ShowInfoAsync(string? text)
@@ -81,10 +89,12 @@ public partial class PersonModel : BindableBase
 }
 ```
 
+`[Notify]` generates the `ShowInfoCommand` property. The command instance is created explicitly in the constructor, keeping command configuration deterministic and visible.
+
 **What you get (conceptually)**:
 - `Name/Surname` properties with `PropertyChanged` and `FullName` notifications.
 - `IAsyncCommand<string?>? ShowInfoCommand` property with WPF requery wiring (via `[UseCommandManager]`).
-- Cached PropertyChangedEventArgs etc. for zero‑alloc notifications.
+- Cached PropertyChangedEventArgs etc. for allocation-free notifications.
 
 ## Validation semantics (concise)
 
@@ -103,9 +113,9 @@ public partial class PersonModel : BindableBase
 When a class is annotated with `[NotifyDataErrorInfo]`, the generator exposes helpers to manage **asynchronous** per‑property validation tasks:
 
 - `SetValidationTask(Task task, CancellationTokenSource cts, string propertyName)`  
-  Associates the task with `propertyName`, **cancelling and disposing** any previous task for that scope (lock‑free CAS under the hood).
+  Associates the task and its `CancellationTokenSource` with `propertyName`, cancelling and disposing the previous token source for that scope before replacing the tracked task.
 - `CancelValidationTask(string propertyName = null)`  
-  Cancels/disposes the tracked task for `propertyName`; with `null` cancels **all** tasks.
+  Cancels and disposes the tracked `CancellationTokenSource` for `propertyName`; with `null`, cancels all tracked validation operations.
 - `CancelAllValidationTasks()`  
   Convenience wrapper to cancel every tracked task (use in teardown).
 - `HasErrorsFor(scope)` / `SetError` / `SetErrors` / `ReplaceErrors` / `RemoveError`  
@@ -203,6 +213,20 @@ public partial class MyViewModel : ViewModelBase
 {
     [Notify, UseCommandManager]
     private IRelayCommand? _saveCommand;
+
+    public MyViewModel()
+    {
+        SaveCommand = new RelayCommand(Save, CanSave);
+    }
+
+    private void Save()
+    {
+    }
+
+    private bool CanSave()
+    {
+        return true;
+    }
 }
 ```
 

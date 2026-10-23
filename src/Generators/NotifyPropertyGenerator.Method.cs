@@ -149,7 +149,7 @@ partial struct NotifyPropertyGenerator
         var propCtx = new NotifyPropertyContext(notifyAttributeData, callbackData, customAttributeData, alsoNotifyAttributeData,
             useCommandManagerAttributeData, isCommand: true, 
             methodSymbol.GetComment(), fullyQualifiedTypeName, isPartial: false,
-            propertyName, backingFieldName, generateBackingFieldName: true);
+            propertyName, backingFieldName, generateBackingFieldName: true, initializeStringBackingField: false);
 
         GenerateProperty(genCtx, ctx, propCtx, ref isFirst);
     }
@@ -180,7 +180,7 @@ partial struct NotifyPropertyGenerator
     private static string GetPropertyNameFromMethodName(string methodName)
     {
         var propertyName = methodName;
-        if (propertyName.EndsWith("Async"))
+        if (propertyName.Length > "Async".Length && propertyName.EndsWith("Async"))
         {
             propertyName = propertyName.Substring(0, propertyName.Length - "Async".Length);
         }

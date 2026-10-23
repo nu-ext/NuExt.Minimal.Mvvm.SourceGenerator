@@ -277,8 +277,7 @@ public partial class Generator : IIncrementalGenerator
     #endregion
 
     #region Helpers
-
-
+    
     private static readonly string[] s_newLineSeparators = ["\r\n", "\n"];
 
     internal static List<(int indent, int length, string line)> GetSourceLines(string source)

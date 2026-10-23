@@ -66,7 +66,7 @@ partial struct NotifyPropertyGenerator
         var propCtx = new NotifyPropertyContext(notifyAttributeData, callbackData, customAttributeData, alsoNotifyAttributeData,
             useCommandManagerAttributeData, isCommand, 
             fieldSymbol.GetComment(), fullyQualifiedTypeName, isPartial: false,
-            propertyName, backingFieldName, generateBackingFieldName: false);
+            propertyName, backingFieldName, generateBackingFieldName: false, initializeStringBackingField: false);
 
         GenerateProperty(genCtx, ctx, propCtx, ref isFirst);
     }
@@ -86,6 +86,11 @@ partial struct NotifyPropertyGenerator
         if (propertyName.StartsWith("_"))
         {
             propertyName = propertyName.TrimStart(s_trimChars);
+        }
+
+        if (propertyName.Length == 0)
+        {
+            return "Empty";
         }
         propertyName = char.ToUpper(propertyName[0]) + propertyName.Substring(1);
         return propertyName;

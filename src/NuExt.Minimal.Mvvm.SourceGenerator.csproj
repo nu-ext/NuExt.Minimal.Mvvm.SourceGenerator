@@ -9,7 +9,7 @@
     <DevelopmentDependency>true</DevelopmentDependency>
     <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
     <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
-    <Description>This package allows you to generate boilerplate code at compile time specifically for ViewModels using the Minimal MVVM Framework, thereby streamlining your development process and reducing repetitive tasks.</Description>
+    <Description>Roslyn source generator for NuExt.Minimal.Mvvm that generates observable properties, command properties, validation infrastructure, and localization members at compile time.</Description>
     <RootNamespace>Minimal.Mvvm.SourceGenerator</RootNamespace>
     <VersionPrefix>0.7.4</VersionPrefix>
   </PropertyGroup>

@@ -37,7 +37,7 @@ internal partial struct NotifyPropertyGenerator
         IEnumerable<CustomAttributeData> customAttributes, IEnumerable<AlsoNotifyAttributeData> alsoNotifyAttributes, 
         UseCommandManagerAttributeData useCommandManagerAttributeData, bool isCommand,
         string[]? comment, string fullyQualifiedTypeName, bool isPartial,
-        string propertyName, string backingFieldName, bool generateBackingFieldName)
+        string propertyName, string backingFieldName, bool generateBackingFieldName, bool initializeStringBackingField)
     {
         internal readonly NotifyAttributeData NotifyAttributeData = attributeData;
         internal readonly CallbackData CallbackData = callbackData;
@@ -55,6 +55,8 @@ internal partial struct NotifyPropertyGenerator
         internal readonly string PropertyName = propertyName;
         internal readonly string BackingFieldName = backingFieldName;
         internal readonly bool GenerateBackingFieldName = generateBackingFieldName;
+
+        internal readonly bool InitializeStringBackingField = initializeStringBackingField;
     }
 
     internal const string NotifyAttributeFullyQualifiedMetadataName = "Minimal.Mvvm.NotifyAttribute";
@@ -180,7 +182,12 @@ internal partial struct NotifyPropertyGenerator
 
         if (propCtx.GenerateBackingFieldName)
         {
-            writer.WriteLine($"private {propCtx.FullyQualifiedTypeName} {propCtx.BackingFieldName};");
+            writer.Write($"private {propCtx.FullyQualifiedTypeName} {propCtx.BackingFieldName}");
+            if (propCtx.InitializeStringBackingField)
+            {
+                writer.Write(" = string.Empty");
+            }
+            writer.WriteLine(";");
         }
 
         #endregion
@@ -567,9 +574,9 @@ internal partial struct NotifyPropertyGenerator
                         if (!string.IsNullOrWhiteSpace(attribute))
                         {
                             attribute = attribute!.Trim();
-                            if (!attribute.StartsWith("[") && !attribute.EndsWith("]"))
+                            if (!attribute.StartsWith("[") || !attribute.EndsWith("]"))
                             {
-                                attribute = $"[{attribute}]";
+                                attribute = $"[{attribute.Trim('[', ']')}]";
                             }
                             list ??= [];
                             list.Add(new CustomAttributeData(attribute));

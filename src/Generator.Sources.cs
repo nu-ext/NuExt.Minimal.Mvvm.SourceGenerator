@@ -6,18 +6,21 @@ partial class Generator
 
     internal static readonly (string hintName, string source)[] Sources = [
         (hintName : "Minimal.Mvvm.AccessModifier.g.cs", source : """
-        /// <summary>
-        /// Enum to define access modifiers.
-        /// </summary>
-        internal enum AccessModifier
+        namespace Minimal.Mvvm
         {
-            Default = 0,
-            Public = 6,
-            ProtectedInternal = 5,
-            Internal = 4,
-            Protected = 3,
-            PrivateProtected = 2,
-            Private = 1,
+            /// <summary>
+            /// Enum to define access modifiers.
+            /// </summary>
+            internal enum AccessModifier
+            {
+                Default = 0,
+                Public = 6,
+                ProtectedInternal = 5,
+                Internal = 4,
+                Protected = 3,
+                PrivateProtected = 2,
+                Private = 1,
+            }
         }
         """),
 
