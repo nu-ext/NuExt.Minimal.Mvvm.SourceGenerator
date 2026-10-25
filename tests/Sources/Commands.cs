@@ -98,6 +98,27 @@ internal partial class Commands
                     await Task.Delay(1000);
                 }
 
+                [Notify(Setter = AccessModifier.Private), CustomAttribute("[global::System.Text.Json.Serialization.JsonIgnore]")]
+                private async global::System.Threading.Tasks.ValueTask SaveAsync()
+                {
+                    await Task.Delay(1000);
+                }
+
+                /// <summary>
+                /// Deletes file.
+                /// </summary>
+                [Notify("DeleteFileCommand", Setter = AccessModifier.Private), CustomAttribute("[global::System.Text.Json.Serialization.JsonIgnore]")]
+                private async System.Threading.Tasks.ValueTask DeleteAsync(string? filePath)
+                {
+                    await Task.Delay(1000);
+                }
+
+                [Notify(Setter = AccessModifier.Private), CustomAttribute("[global::System.Text.Json.Serialization.JsonIgnore]")]
+                private async ValueTask RefreshAsync()
+                {
+                    await Task.Delay(1000);
+                }
+
                 /// <summary>
                 /// Opens file.
                 /// </summary>
@@ -149,6 +170,33 @@ internal partial class Commands
                 {
                     get => _closeCommand;
                     private set => SetProperty(ref _closeCommand, value, global::Minimal.Mvvm.EventArgsCache.CloseCommandPropertyChanged);
+                }
+
+                private global::Minimal.Mvvm.IAsyncCommand? _saveCommand;
+                [global::System.Text.Json.Serialization.JsonIgnore]
+                public global::Minimal.Mvvm.IAsyncCommand? SaveCommand
+                {
+                    get => _saveCommand;
+                    private set => SetProperty(ref _saveCommand, value, global::Minimal.Mvvm.EventArgsCache.SaveCommandPropertyChanged);
+                }
+
+                private global::Minimal.Mvvm.IAsyncCommand<string?>? _deleteFileCommand;
+                /// <summary>
+                /// Deletes file.
+                /// </summary>
+                [global::System.Text.Json.Serialization.JsonIgnore]
+                public global::Minimal.Mvvm.IAsyncCommand<string?>? DeleteFileCommand
+                {
+                    get => _deleteFileCommand;
+                    private set => SetProperty(ref _deleteFileCommand, value, global::Minimal.Mvvm.EventArgsCache.DeleteFileCommandPropertyChanged);
+                }
+
+                private global::Minimal.Mvvm.IAsyncCommand? _refreshCommand;
+                [global::System.Text.Json.Serialization.JsonIgnore]
+                public global::Minimal.Mvvm.IAsyncCommand? RefreshCommand
+                {
+                    get => _refreshCommand;
+                    private set => SetProperty(ref _refreshCommand, value, global::Minimal.Mvvm.EventArgsCache.RefreshCommandPropertyChanged);
                 }
 
                 private global::Minimal.Mvvm.IAsyncCommand<string?>? _openFileCommand;

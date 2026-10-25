@@ -22,17 +22,19 @@ partial struct NotifyPropertyGenerator
 
         bool hasValidReturnType;
         bool returnsVoid = false;
+        string returnType;
         switch (methodDeclarationSyntax.ReturnType)
         {
             case IdentifierNameSyntax identifierNameSyntax:
-                hasValidReturnType = identifierNameSyntax.Identifier is { ValueText: "Task" };
+                hasValidReturnType = identifierNameSyntax.Identifier.ValueText is "Task" or "ValueTask";
                 break;
             case PredefinedTypeSyntax predefinedTypeSyntax:
                 returnsVoid = predefinedTypeSyntax.Keyword.IsKind(SyntaxKind.VoidKeyword);
                 hasValidReturnType = returnsVoid;
                 break;
             case QualifiedNameSyntax qualifiedNameSyntax:
-                hasValidReturnType = RemoveGlobalAlias(qualifiedNameSyntax.ToString()) == "System.Threading.Tasks.Task";
+                returnType = RemoveGlobalAlias(qualifiedNameSyntax.ToString());
+                hasValidReturnType = returnType is "System.Threading.Tasks.Task" or "System.Threading.Tasks.ValueTask";
                 break;
             default:
                 hasValidReturnType = false;
@@ -95,8 +97,7 @@ partial struct NotifyPropertyGenerator
             return methodSymbol.Parameters.Length <= 1;
         }
 
-        if (methodSymbol.ReturnType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) !=
-            "global::System.Threading.Tasks.Task")
+        if (!IsAsyncReturnType(compilation, methodSymbol.ReturnType))
         {
             return false;
         }
@@ -107,6 +108,13 @@ partial struct NotifyPropertyGenerator
         }
 
         return methodSymbol.Parameters.Length <= 1;
+    }
+
+    private static bool IsAsyncReturnType(Compilation compilation, ITypeSymbol returnType)
+    {
+        var taskType = compilation.GetTypeByMetadataName("System.Threading.Tasks.Task");
+        var valueTaskType = compilation.GetTypeByMetadataName("System.Threading.Tasks.ValueTask");
+        return SymbolEqualityComparer.Default.Equals(returnType, taskType) || SymbolEqualityComparer.Default.Equals(returnType, valueTaskType);
     }
 
     private static bool HasCancellableParameter(IMethodSymbol methodSymbol)

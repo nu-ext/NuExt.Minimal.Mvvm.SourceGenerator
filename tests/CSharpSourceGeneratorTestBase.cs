@@ -49,13 +49,12 @@ public class CSharpSourceGeneratorTestBase : CSharpSourceGeneratorTest<Generator
 #if NET10_0
         ReferenceAssemblies = ReferenceAssemblies.Net.Net100Windows;
 #elif NET9_0
-        ReferenceAssemblies = ReferenceAssemblies.Net.Net90Windows;
+    ReferenceAssemblies = ReferenceAssemblies.Net.Net90Windows;
 #elif NET8_0
-        ReferenceAssemblies = ReferenceAssemblies.Net.Net80Windows;
+    ReferenceAssemblies = ReferenceAssemblies.Net.Net80Windows;
 #endif
-        TestState.AdditionalReferences.Add(
-            MetadataReference.CreateFromFile(typeof(BindableBase).Assembly.Location)
-        );
+        TestState.AdditionalReferences.Add(MetadataReference.CreateFromFile(typeof(BindableBase).Assembly.Location));
+        TestState.AdditionalReferences.Add(MetadataReference.CreateFromFile(typeof(System.Windows.Input.CommandManager).Assembly.Location));
     }
 
     protected static string GetExpectedSource(string? sourceTemplate)

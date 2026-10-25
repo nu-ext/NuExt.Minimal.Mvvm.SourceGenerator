@@ -2,8 +2,6 @@
 
 partial class Generator
 {
-    #region Sources
-
     internal static readonly (string hintName, string source)[] Sources = [
         (hintName : "Minimal.Mvvm.AccessModifier.g.cs", source : """
         namespace Minimal.Mvvm
@@ -273,6 +271,4 @@ partial class Generator
             }
         }
         """);
-
-    #endregion
 }
