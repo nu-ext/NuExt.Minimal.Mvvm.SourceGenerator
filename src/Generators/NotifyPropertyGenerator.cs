@@ -60,11 +60,14 @@ internal partial struct NotifyPropertyGenerator
     }
 
     internal const string NotifyAttributeFullyQualifiedMetadataName = "Minimal.Mvvm.NotifyAttribute";
+    internal const string NotifyAttributeFullyQualifiedName = "global::Minimal.Mvvm.NotifyAttribute";
+
+    internal const string CommandAttributeFullyQualifiedMetadataName = "Minimal.Mvvm.CommandAttribute";
+    internal const string CommandAttributeFullyQualifiedName = "global::Minimal.Mvvm.CommandAttribute";
 
     internal const string BindableBaseFullyQualifiedMetadataName = "Minimal.Mvvm.BindableBase";
     internal const string PropertyChangeNotifierFullyQualifiedMetadataName = "System.ComponentModel.PropertyChangeNotifier";
 
-    internal const string NotifyAttributeFullyQualifiedName = "global::Minimal.Mvvm.NotifyAttribute";
     internal const string AlsoNotifyAttributeFullyQualifiedName = "global::Minimal.Mvvm.AlsoNotifyAttribute";
     internal const string CustomAttributeFullyQualifiedName = "global::Minimal.Mvvm.CustomAttributeAttribute";
     internal const string UseCommandManagerAttributeFullyQualifiedName = "global::Minimal.Mvvm.UseCommandManagerAttribute";
@@ -96,6 +99,12 @@ internal partial struct NotifyPropertyGenerator
         };
     }
 
+    internal static bool IsValidCommandSyntaxNode(SyntaxNode attributeTarget, CancellationToken cancellationToken)
+    {
+        _ = cancellationToken;
+        return attributeTarget is MethodDeclarationSyntax method && IsValidMethodDeclaration(method);
+    }
+
     #endregion
 
     #region Methods
@@ -112,6 +121,16 @@ internal partial struct NotifyPropertyGenerator
                 return true;
         }
         return false;
+    }
+
+    internal static bool HasNotifyAttribute(IMethodSymbol methodSymbol)
+    {
+        return GetNotifyAttribute(methodSymbol.GetAttributes()) is not null;
+    }
+
+    internal static bool HasCommandAttribute(IMethodSymbol methodSymbol)
+    {
+        return GetCommandAttribute(methodSymbol.GetAttributes()) is not null;
     }
 
     public static void Generate(scoped Generator.GeneratorContext genCtx, scoped NotifyPropertyGeneratorContext ctx, ref bool isFirst)
@@ -417,6 +436,11 @@ internal partial struct NotifyPropertyGenerator
         return parameters.Length == 0 || parameterType?.IsAssignableFromType(parameters[0].Type) == true;
     }
 
+    private static AttributeData? GetCommandAttribute(IEnumerable<AttributeData> attributes)
+    {
+        return attributes.SingleOrDefault(x => x.AttributeClass?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) == CommandAttributeFullyQualifiedName);
+    }
+
     private static AttributeData? GetNotifyAttribute(IEnumerable<AttributeData> attributes)
     {
         return attributes.SingleOrDefault(x => x.AttributeClass?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) == NotifyAttributeFullyQualifiedName);
@@ -435,6 +459,45 @@ internal partial struct NotifyPropertyGenerator
     private static AttributeData? GetUseCommandManagerAttribute(IEnumerable<AttributeData> attributes)
     {
         return attributes.SingleOrDefault(x => x.AttributeClass?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) == UseCommandManagerAttributeFullyQualifiedName);
+    }
+
+    private static NotifyAttributeData GetCommandAttributeData(AttributeData commandAttribute)
+    {
+        string? propertyName = null;
+        Accessibility getterAccessibility = Accessibility.NotApplicable;
+        Accessibility setterAccessibility = Accessibility.NotApplicable;
+
+        if (commandAttribute.ConstructorArguments.Length > 0 && commandAttribute.ConstructorArguments[0] is { Type.SpecialType: SpecialType.System_String, Value: string value })
+        {
+            propertyName = value;
+        }
+
+        if (commandAttribute.NamedArguments.Length > 0)
+        {
+            foreach (var pair in commandAttribute.NamedArguments)
+            {
+                var name = pair.Key;
+                var typedConstant = pair.Value;
+                switch (pair.Key)
+                {
+                    case nameof(CommandAttribute.PropertyName):
+                        propertyName = (string?)typedConstant.Value;
+                        break;
+                    case nameof(CommandAttribute.Getter):
+                        getterAccessibility = (Accessibility)typedConstant.Value!;
+                        break;
+                    case nameof(CommandAttribute.Setter):
+                        setterAccessibility = (Accessibility)typedConstant.Value!;
+                        break;
+                    default:
+                        Trace.WriteLine($"Unexpected argument name: {name}");
+                        break;
+                }
+            }
+        }
+
+        (var propertyAccessibility, getterAccessibility, setterAccessibility) = GetAccessibility(getterAccessibility, setterAccessibility);
+        return new NotifyAttributeData(propertyName, null, null, propertyAccessibility, getterAccessibility, setterAccessibility);
     }
 
     private static NotifyAttributeData GetNotifyAttributeData(AttributeData notifyAttribute)

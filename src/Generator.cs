@@ -17,6 +17,7 @@ public partial class Generator : IIncrementalGenerator
     private enum AttributeType
     {
         Notify,
+        Command,
         NotifyDataErrorInfo,
         Localize
     }
@@ -30,6 +31,9 @@ public partial class Generator : IIncrementalGenerator
         (fullyQualifiedMetadataName: NotifyPropertyGenerator.NotifyAttributeFullyQualifiedMetadataName,
             predicate: NotifyPropertyGenerator.IsValidSyntaxNode,
             transform: static (context, _) => (member: context.TargetSymbol, attributes: context.Attributes, AttributeType.Notify)),
+        (fullyQualifiedMetadataName: NotifyPropertyGenerator.CommandAttributeFullyQualifiedMetadataName,
+            predicate: NotifyPropertyGenerator.IsValidCommandSyntaxNode,
+            transform: static (context, _) => (member: context.TargetSymbol, attributes: context.Attributes, AttributeType.Command)),
         (fullyQualifiedMetadataName: NotifyDataErrorInfoGenerator.NotifyDataErrorInfoAttributeFullyQualifiedMetadataName,
             predicate: NotifyDataErrorInfoGenerator.IsValidSyntaxNode,
             transform: static (context, _) => (member: context.TargetSymbol, attributes: context.Attributes, AttributeType.NotifyDataErrorInfo)),
@@ -104,7 +108,7 @@ public partial class Generator : IIncrementalGenerator
                                 }
                                 break;
                             case IMethodSymbol methodSymbol:
-                                if (!NotifyPropertyGenerator.IsValidMethod(compilation, methodSymbol))
+                                if (NotifyPropertyGenerator.HasCommandAttribute(methodSymbol) || !NotifyPropertyGenerator.IsValidMethod(compilation, methodSymbol))
                                 {
                                     continue;
                                 }
@@ -118,6 +122,24 @@ public partial class Generator : IIncrementalGenerator
                         }
                         typeInfo.Add(item);
                         break;
+
+                    case AttributeType.Command:
+                        if (symbol is not IMethodSymbol commandMethodSymbol || !NotifyPropertyGenerator.IsValidMethod(compilation, commandMethodSymbol))
+                        {
+                            continue;
+                        }
+                        if (NotifyPropertyGenerator.HasNotifyAttribute(commandMethodSymbol))
+                        {
+                            context.ReportDiagnostic(Diagnostic.Create(Diagnostics.ConflictingCommandAttributes, commandMethodSymbol.Locations.FirstOrDefault(), commandMethodSymbol.Name));
+                            continue;
+                        }
+                        if (!typeInfos.TryGetValue(commandMethodSymbol.ContainingType, out typeInfo))
+                        {
+                            typeInfos[commandMethodSymbol.ContainingType] = typeInfo = [];
+                        }
+                        typeInfo.Add(item);
+                        break;
+
                     case AttributeType.NotifyDataErrorInfo:
                         if (symbol is not INamedTypeSymbol namedTypeSymbol || !NotifyDataErrorInfoGenerator.IsValidType(compilation, namedTypeSymbol))
                         {
@@ -129,6 +151,7 @@ public partial class Generator : IIncrementalGenerator
                         }
                         typeInfo.Add(item);
                         break;
+
                     case AttributeType.Localize:
                         if (symbol is not INamedTypeSymbol typeSymbol || !LocalizePropertyGenerator.IsValidType(typeSymbol, attributes, additionalTexts))
                         {
@@ -186,6 +209,7 @@ public partial class Generator : IIncrementalGenerator
                     switch (group.Key)
                     {
                         case AttributeType.Notify:
+                        case AttributeType.Command:
                             NotifyPropertyGenerator.Generate(genCtx, new NotifyPropertyGeneratorContext(writer, group.Select(m => m.member), containingType.Name + '.', backingFieldNameCache), ref isFirst);
                             break;
 

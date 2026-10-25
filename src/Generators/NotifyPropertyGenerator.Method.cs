@@ -134,12 +134,13 @@ partial struct NotifyPropertyGenerator
     {
         var attributes = methodSymbol.GetAttributes();
 
+        var commandAttribute = GetCommandAttribute(attributes);
         var notifyAttribute = GetNotifyAttribute(attributes)!;
         var alsoNotifyAttributes = GetAlsoNotifyAttributes(attributes);
         var customAttributes = GetCustomAttributes(attributes);
         var useCommandManagerAttribute = GetUseCommandManagerAttribute(attributes);
 
-        var notifyAttributeData = GetNotifyAttributeData(notifyAttribute);
+        var notifyAttributeData = commandAttribute is not null ? GetCommandAttributeData(commandAttribute) : GetNotifyAttributeData(notifyAttribute!);
         var alsoNotifyAttributeData = GetAlsoNotifyAttributeData(alsoNotifyAttributes);
         var customAttributeData = GetCustomAttributeData(customAttributes);
         var useCommandManagerAttributeData = GetUseCommandManagerAttributeData(useCommandManagerAttribute);

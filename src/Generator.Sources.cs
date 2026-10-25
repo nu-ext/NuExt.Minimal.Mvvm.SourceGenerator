@@ -3,7 +3,8 @@
 partial class Generator
 {
     internal static readonly (string hintName, string source)[] Sources = [
-        (hintName : "Minimal.Mvvm.AccessModifier.g.cs", source : """
+        (hintName : "Minimal.Mvvm.AccessModifier.g.cs", source :
+        """
         namespace Minimal.Mvvm
         {
             /// <summary>
@@ -22,7 +23,8 @@ partial class Generator
         }
         """),
 
-        (hintName : "Minimal.Mvvm.CustomAttributeAttribute.g.cs", source : """
+        (hintName : "Minimal.Mvvm.CustomAttributeAttribute.g.cs", source :
+        """
         using System;
 
         namespace Minimal.Mvvm
@@ -50,7 +52,8 @@ partial class Generator
         }
         """),
 
-        (hintName : "Minimal.Mvvm.LocalizeAttribute.g.cs", source : """
+        (hintName : "Minimal.Mvvm.LocalizeAttribute.g.cs", source :
+        """
         using System;
 
         namespace Minimal.Mvvm
@@ -116,7 +119,8 @@ partial class Generator
         }
         """),
 
-        (hintName : "Minimal.Mvvm.NotifyAttribute.g.cs", source : """
+        (hintName : "Minimal.Mvvm.NotifyAttribute.g.cs", source :
+        """
         using System;
 
         namespace Minimal.Mvvm
@@ -170,7 +174,8 @@ partial class Generator
             }
         }
         """),
-         (hintName : "Minimal.Mvvm.AlsoNotifyAttribute.g.cs", source : """
+        (hintName : "Minimal.Mvvm.AlsoNotifyAttribute.g.cs", source :
+        """
         using System;
 
         namespace Minimal.Mvvm
@@ -197,7 +202,53 @@ partial class Generator
             }
         }
         """),
-         (hintName : "Minimal.Mvvm.NotifyDataErrorInfoAttribute.g.cs", source : """
+        // CommandAttribute
+        (hintName: "Minimal.Mvvm.CommandAttribute.g.cs", source:
+        """
+        using System;
+        namespace Minimal.Mvvm
+        {
+            /// <summary>
+            /// Marks a method for command property generation.
+            /// </summary>
+            [AttributeUsage(AttributeTargets.Method, Inherited = false, AllowMultiple = false)]
+            internal sealed class CommandAttribute : Attribute
+            {
+                /// <summary>
+                /// Initializes a new instance of the <see cref="CommandAttribute"/> class.
+                /// </summary>
+                public CommandAttribute()
+                {
+                }
+
+                /// <summary>
+                /// Initializes a new instance of the <see cref="CommandAttribute"/> class with the specified property name.
+                /// </summary>
+                /// <param name="propertyName">The generated command property name.</param>
+                public CommandAttribute(string propertyName)
+                {
+                    PropertyName = propertyName;
+                }
+
+                /// <summary>
+                /// Gets or sets the generated command property name.
+                /// </summary>
+                public string PropertyName { get; set; }
+
+                /// <summary>
+                /// Gets or sets the access modifier for the getter.
+                /// </summary>
+                public AccessModifier Getter { get; set; }
+
+                /// <summary>
+                /// Gets or sets the access modifier for the setter.
+                /// </summary>
+                public AccessModifier Setter { get; set; }
+            }
+        }
+        """),
+        (hintName : "Minimal.Mvvm.NotifyDataErrorInfoAttribute.g.cs", source :
+        """
         using System;
 
         namespace Minimal.Mvvm
@@ -218,31 +269,33 @@ partial class Generator
             }
         }
         """),
-        (hintName : "Minimal.Mvvm.UseCommandManagerAttribute.g.cs", source : """
-            using System;
+        (hintName : "Minimal.Mvvm.UseCommandManagerAttribute.g.cs", source :
+        """
+        using System;
 
-            namespace Minimal.Mvvm
+        namespace Minimal.Mvvm
+        {
+            /// <summary>
+            /// Enables automatic IRelayCommand.CanExecute re-evaluation for generated commands
+            /// by subscribing to the WPF CommandManager.RequerySuggested event.
+            /// </summary>
+            [AttributeUsage(AttributeTargets.Field | AttributeTargets.Method, Inherited = false, AllowMultiple = false)]
+            internal sealed class UseCommandManagerAttribute : Attribute
             {
                 /// <summary>
-                /// Enables automatic IRelayCommand.CanExecute re-evaluation for generated commands
-                /// by subscribing to the WPF CommandManager.RequerySuggested event.
+                /// Initializes a new instance of the <see cref="UseCommandManagerAttribute"/> class.
                 /// </summary>
-                [AttributeUsage(AttributeTargets.Field | AttributeTargets.Method, Inherited = false, AllowMultiple = false)]
-                internal sealed class UseCommandManagerAttribute : Attribute
+                public UseCommandManagerAttribute()
                 {
-                    /// <summary>
-                    /// Initializes a new instance of the <see cref="UseCommandManagerAttribute"/> class.
-                    /// </summary>
-                    public UseCommandManagerAttribute()
-                    {
 
-                    }
                 }
             }
-            """),
+        }
+        """),
     ];
 
-    internal static readonly (string hintName, string source) RequerySuggestedEventManagerSource = ("Minimal.Mvvm.RequerySuggestedEventManager.g.cs", """
+    internal static readonly (string hintName, string source) RequerySuggestedEventManagerSource = ("Minimal.Mvvm.RequerySuggestedEventManager.g.cs",
+        """
         namespace Minimal.Mvvm
         {
             internal static class RequerySuggestedEventManager

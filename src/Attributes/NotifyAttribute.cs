@@ -1,16 +1,5 @@
 ﻿namespace Minimal.Mvvm;
 
-internal enum AccessModifier
-{
-    Default = 0,
-    Public = 6,
-    ProtectedInternal = 5,
-    Internal = 4,
-    Protected = 3,
-    PrivateProtected = 2,
-    Private = 1,
-}
-
 [AttributeUsage(AttributeTargets.Field | AttributeTargets.Method, Inherited = false, AllowMultiple = false)]
 internal sealed class NotifyAttribute : Attribute
 {
@@ -21,7 +10,7 @@ internal sealed class NotifyAttribute : Attribute
 
     public NotifyAttribute(string propertyName)
     {
-
+        PropertyName = propertyName;
     }
 
     public string PropertyName { get; set; } = null!;
