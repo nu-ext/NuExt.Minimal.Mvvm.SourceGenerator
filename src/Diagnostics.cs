@@ -76,10 +76,10 @@ internal static class Diagnostics
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true);
 
-    internal static readonly DiagnosticDescriptor InvalidLocalizeType = new(
+    internal static readonly DiagnosticDescriptor InvalidLocalizeConfiguration = new(
         id: "NUEXT010",
-        title: "Invalid localize type",
-        messageFormat: "Type '{0}' annotated with [Localize] has an invalid localization configuration",
+        title: "Invalid localize configuration",
+        messageFormat: "Type '{0}' annotated with [Localize] must specify an existing JSON additional file",
         category: "Usage",
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true);
@@ -136,6 +136,14 @@ internal static class Diagnostics
         id: "NUEXT017",
         title: "Command property is already declared",
         messageFormat: "Type '{0}' already contains member '{1}' generated for command method '{2}'",
+        category: "Usage",
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+    internal static readonly DiagnosticDescriptor InvalidLocalizationFile = new(
+        id: "NUEXT018",
+        title: "Invalid localization file",
+        messageFormat: "Localization file '{0}' specified by type '{1}' contains invalid JSON: {2}",
         category: "Usage",
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true);

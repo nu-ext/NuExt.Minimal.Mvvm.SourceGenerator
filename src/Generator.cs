@@ -238,10 +238,17 @@ public partial class Generator : IIncrementalGenerator
                             continue;
                         }
 
-                        if (!LocalizePropertyGenerator.IsValidContainingType(typeSymbol, attributes, additionalTexts))
+                        if (!LocalizePropertyGenerator.IsValidConfiguration(attributes, additionalTexts))
                         {
-                            context.ReportDiagnostic(Diagnostic.Create(Diagnostics.InvalidLocalizeType,
+                            context.ReportDiagnostic(Diagnostic.Create(Diagnostics.InvalidLocalizeConfiguration,
                                 typeSymbol.Locations.FirstOrDefault(), typeSymbol.Name));
+                            continue;
+                        }
+
+                        if (!LocalizePropertyGenerator.TryValidateJson(attributes, additionalTexts, out var jsonFileName, out var error))
+                        {
+                            context.ReportDiagnostic(Diagnostic.Create(Diagnostics.InvalidLocalizationFile,
+                                typeSymbol.Locations.FirstOrDefault(), jsonFileName, typeSymbol.Name, error));
                             continue;
                         }
 

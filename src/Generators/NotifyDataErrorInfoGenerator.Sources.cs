@@ -2,15 +2,18 @@
 
 partial struct NotifyDataErrorInfoGenerator
 {
-    private static string GetCodeSource(string nullable, string eventArgsCache, string dataErrorsChangedEventArgsCache) => $$"""
+    private static string GetCodeSource(string nullable, string eventArgsCache, string dataErrorsChangedEventArgsCache) =>
+        $$"""
         #region INotifyDataErrorInfo validation
 
-        private global::System.Collections.Concurrent.ConcurrentDictionary<string, global::System.Collections.Generic.List<string>>{{nullable}} _validationErrors;
-        private global::System.Collections.Concurrent.ConcurrentDictionary<string, (global::System.Threading.Tasks.Task task, global::System.Threading.CancellationTokenSource cts)>{{nullable}} _validationTasks;
+        private readonly object _validationErrorsSyncRoot = new();
+        private readonly object _validationTasksSyncRoot = new();
+        private global::System.Collections.Generic.Dictionary<string, global::System.Collections.Generic.List<string>>? _validationErrors;
+        private global::System.Collections.Generic.Dictionary<string, (global::System.Threading.Tasks.Task task, global::System.Threading.CancellationTokenSource cts)>? _validationTasks;
         private global::System.Threading.SynchronizationContext{{nullable}} _ui;
         private global::System.Threading.SendOrPostCallback{{nullable}} _errorsChanged;
         private global::System.Threading.SendOrPostCallback{{nullable}} _hasErrorsChanged;
-        private volatile int _hasErrors;
+        private volatile bool _hasErrors;
 
 #if !NET8_0_OR_GREATER
         private static readonly global::System.Collections.Generic.IReadOnlyDictionary<string, string[]> s_emptyErrorsMap =
@@ -18,125 +21,198 @@ partial struct NotifyDataErrorInfoGenerator
                 new global::System.Collections.Generic.Dictionary<string, string[]>(0, global::System.StringComparer.Ordinal));
 #endif
 
+        [global::System.ComponentModel.EditorBrowsable(global::System.ComponentModel.EditorBrowsableState.Never)]
+        private static void DisposeValidation(global::System.Threading.CancellationTokenSource cts)
+        {
+            try
+            {
+                cts.Dispose();
+            }
+            catch (global::System.ObjectDisposedException)
+            {
+                //do nothing
+            }
+        }
+
+        [global::System.ComponentModel.EditorBrowsable(global::System.ComponentModel.EditorBrowsableState.Never)]
+        private static void CancelAndDisposeValidationOnCompletion((global::System.Threading.Tasks.Task task, global::System.Threading.CancellationTokenSource cts) validation)
+        {
+            if (validation.task.IsCompleted)
+            {
+                DisposeValidation(validation.cts);
+                return;
+            }
+
+            try
+            {
+                validation.cts.Cancel();
+            }
+            catch (global::System.ObjectDisposedException)
+            {
+                //do nothing
+            }
+            catch (global::System.AggregateException)
+            {
+                //do nothing
+            }
+
+            _ = validation.task.ContinueWith(static (_, state) =>
+            {
+                DisposeValidation((global::System.Threading.CancellationTokenSource)state!);
+            }, validation.cts, global::System.Threading.CancellationToken.None, global::System.Threading.Tasks.TaskContinuationOptions.ExecuteSynchronously, global::System.Threading.Tasks.TaskScheduler.Default);
+        }
+
+        [global::System.ComponentModel.EditorBrowsable(global::System.ComponentModel.EditorBrowsableState.Never)]
+        private void OnValidationTaskCompleted(global::System.Threading.Tasks.Task task, global::System.Threading.CancellationTokenSource cts, string propertyName)
+        {
+            bool removed = false;
+            lock (_validationTasksSyncRoot)
+            {
+                if (_validationTasks is { } validationTasks &&
+                    validationTasks.TryGetValue(propertyName, out var validation) &&
+                    global::System.Object.ReferenceEquals(validation.task, task) &&
+                    global::System.Object.ReferenceEquals(validation.cts, cts))
+                {
+                    validationTasks.Remove(propertyName);
+                    removed = true;
+                }
+            }
+
+            if (removed)
+            {
+                DisposeValidation(cts);
+            }
+        }
+
         /// <summary>
         /// Associates an asynchronous validation task with the specified property, replacing any previous task.
         /// </summary>
         /// <param name="task">The validation task to track.</param>
-        /// <param name="cts">The cancellation token source linked to <paramref name="task"/>.</param>
+        /// <param name="cts">
+        /// The cancellation token source linked to <paramref name="task"/>. Ownership is transferred to this instance
+        /// when the validation task is successfully registered. The caller must not dispose it after a successful
+        /// registration. A dedicated cancellation token source must be provided for each validation task.
+        /// </param>
         /// <param name="propertyName">
-        /// The name of the property initiating the validation; this value is normally supplied
-        /// by the compiler when called from a property setter.
+        /// The name of the property associated with the validation operation. This value is normally supplied
+        /// by the compiler when the method is called from a property setter.
         /// </param>
         /// <remarks>
-        /// If an existing task is present for <paramref name="propertyName"/>, it is cancelled and disposed
-        /// before the new task is stored.
+        /// If <paramref name="propertyName"/> is <c>null</c> or empty, the validation task is not registered and ownership
+        /// of <paramref name="cts"/> remains with the caller. If an existing task is present for
+        /// <paramref name="propertyName"/>, cancellation is requested through its cancellation token source after the new
+        /// task is stored. Each registered cancellation token source is disposed after its associated task completes.
+        /// The validation operation is responsible for observing its cancellation token before publishing validation results.
         /// </remarks>
         public void SetValidationTask(global::System.Threading.Tasks.Task task, global::System.Threading.CancellationTokenSource cts, [global::System.Runtime.CompilerServices.CallerMemberName] string{{nullable}} propertyName = null)
         {
-            if (propertyName is null)
+            _ = task ?? throw new global::System.ArgumentNullException(nameof(task));
+            _ = cts ?? throw new global::System.ArgumentNullException(nameof(cts));
+
+            if (propertyName is not { Length: > 0 })
             {
                 return;
             }
 
-            if (_validationTasks?.TryRemove(propertyName, out var oldValidation) == true)
+            (global::System.Threading.Tasks.Task task, global::System.Threading.CancellationTokenSource cts)? oldValidation = null;
+            lock (_validationTasksSyncRoot)
             {
-                var (oldTask, oldCts) = oldValidation;
-                try
+                var validationTasks = _validationTasks ??= new(global::System.StringComparer.Ordinal);
+                if (validationTasks.TryGetValue(propertyName, out var validation))
                 {
-                    if (!oldTask.IsCompleted)
+                    if (global::System.Object.ReferenceEquals(validation.task, task) &&
+                        global::System.Object.ReferenceEquals(validation.cts, cts))
                     {
-                        oldCts.Cancel();
+                        return;
                     }
-                    oldCts.Dispose();
+
+                    oldValidation = validation;
                 }
-                catch (global::System.ObjectDisposedException)
+
+                foreach (var registeredValidation in validationTasks.Values)
                 {
-                    //do nothing
+                    if (global::System.Object.ReferenceEquals(registeredValidation.cts, cts))
+                    {
+                        throw new global::System.ArgumentException("The cancellation token source is already associated with another validation task.", nameof(cts));
+                    }
                 }
-                catch (global::System.AggregateException)
-                {
-                    //do nothing
-                }
+
+                validationTasks[propertyName] = (task, cts);
             }
 
-            (_validationTasks ??= new())[propertyName] = (task, cts);
+            if (oldValidation is { } old)
+            {
+                CancelAndDisposeValidationOnCompletion(old);
+            }
+
+            _ = task.ContinueWith((completedTask, state) =>
+            {
+                var (tokenSource, name) = ((global::System.Threading.CancellationTokenSource cts, string propertyName))state!;
+                OnValidationTaskCompleted(completedTask, tokenSource, name);
+            }, (cts, propertyName), global::System.Threading.CancellationToken.None, global::System.Threading.Tasks.TaskContinuationOptions.ExecuteSynchronously, global::System.Threading.Tasks.TaskScheduler.Default);
         }
 
         /// <summary>
-        /// Cancels the validation task for the specified property; cancels all tracked validation tasks when <paramref name="propertyName"/> is <c>null</c> or empty.
+        /// Requests cancellation of the validation task associated with the specified property.
         /// </summary>
         /// <param name="propertyName">
-        /// The name of the property. When <c>null</c> or empty, all tasks are cancelled and cleared.
+        /// The name of the property associated with the validation operation. This value is normally supplied
+        /// by the compiler when the method is called from a property setter. When <c>null</c> or empty, the method
+        /// performs no operation.
         /// </param>
         /// <remarks>
-        /// This method cancels and disposes the associated <see cref="global::System.Threading.CancellationTokenSource"/> instances
-        /// and clears the internal task registry accordingly.
+        /// This method requests cancellation through the associated
+        /// <see cref="global::System.Threading.CancellationTokenSource"/>, removes the corresponding entry
+        /// from the internal task registry, and disposes the token source after its associated task completes.
         /// </remarks>
         public void CancelValidationTask([global::System.Runtime.CompilerServices.CallerMemberName] string{{nullable}} propertyName = null)
         {
-            var validationTasks = _validationTasks;
-            if (validationTasks == null || validationTasks.IsEmpty)
+            if (propertyName is not { Length: > 0 })
             {
                 return;
             }
-            if (propertyName is not { Length: > 0 })
+
+            (global::System.Threading.Tasks.Task task, global::System.Threading.CancellationTokenSource cts) validation;
+            lock (_validationTasksSyncRoot)
             {
-                foreach (var pair in validationTasks)
-                {
-                    var (task, cts) = pair.Value;
-                    try
-                    {
-                        if (!task.IsCompleted)
-                        {
-                            cts.Cancel();
-                        }
-                        cts.Dispose();
-                    }
-                    catch (global::System.ObjectDisposedException)
-                    {
-                        //do nothing
-                    }
-                    catch (global::System.AggregateException)
-                    {
-                        //do nothing
-                    }
-                }
-                validationTasks.Clear();
-            }
-            else
-            {
-                if (!validationTasks.TryRemove(propertyName, out var validation))
+                if (_validationTasks is null || !_validationTasks.TryGetValue(propertyName, out validation))
                 {
                     return;
                 }
 
-                var (task, cts) = validation;
-                try
-                {
-                    if (!task.IsCompleted)
-                    {
-                        cts.Cancel();
-                    }
-                    cts.Dispose();
-                }
-                catch (global::System.ObjectDisposedException)
-                {
-                    //do nothing
-                }
-                catch (global::System.AggregateException)
-                {
-                    //do nothing
-                }
+                _validationTasks.Remove(propertyName);
             }
+
+            CancelAndDisposeValidationOnCompletion(validation);
         }
 
         /// <summary>
-        /// Cancels all ongoing validation tasks.
+        /// Requests cancellation of all tracked validation tasks.
         /// </summary>
         /// <remarks>
-        /// Recommended to invoke during object teardown to ensure no background validation remains active.
+        /// Recommended to invoke during object teardown to request cancellation of all background validation operations.
+        /// Their associated cancellation token sources are released after the tasks complete.
         /// </remarks>
-        public void CancelAllValidationTasks() => CancelValidationTask(null);
+        public void CancelAllValidationTasks()
+        {
+            (global::System.Threading.Tasks.Task task, global::System.Threading.CancellationTokenSource cts)[] validations;
+            lock (_validationTasksSyncRoot)
+            {
+                if (_validationTasks is not { Count: > 0 } validationTasks)
+                {
+                    return;
+                }
+
+                validations = new (global::System.Threading.Tasks.Task task, global::System.Threading.CancellationTokenSource cts)[validationTasks.Count];
+                validationTasks.Values.CopyTo(validations, 0);
+                validationTasks.Clear();
+            }
+
+            foreach (var validation in validations)
+            {
+                CancelAndDisposeValidationOnCompletion(validation);
+            }
+        }
 
         /// <summary>
         /// Adds a single validation error for the specified property; clears errors for that scope when <paramref name="message"/> is <c>null</c> or empty.
@@ -146,10 +222,10 @@ partial struct NotifyDataErrorInfoGenerator
         /// The name of the property; when <c>null</c> or empty, the operation targets entity-level errors.
         /// </param>
         /// <remarks>
-        /// The operation is idempotent with respect to existing messages. Internal storage uses copy-on-write to avoid
-        /// concurrent enumeration issues in UI bindings.
+        /// The operation is idempotent with respect to existing messages. Internal state changes are synchronized,
+        /// and notifications are raised only when the target scope actually changes.
         /// </remarks>
-        public void SetError(string message, [global::System.Runtime.CompilerServices.CallerMemberName] string{{nullable}} propertyName = null)
+        public void SetError(string{{nullable}} message, [global::System.Runtime.CompilerServices.CallerMemberName] string{{nullable}} propertyName = null)
         {
             if (message is not { Length: > 0 })
             {
@@ -159,36 +235,27 @@ partial struct NotifyDataErrorInfoGenerator
 
             propertyName ??= string.Empty;// null or "" => entity-level
 
-            var validationErrors = _validationErrors ??= new(global::System.StringComparer.Ordinal);
-            global::System.Collections.Generic.List<string>{{nullable}} errors = null;
-            while (true)
+            bool raiseHasErrorsChanged;
+            lock (_validationErrorsSyncRoot)
             {
-                if (validationErrors.TryGetValue(propertyName, out var current))
+                var validationErrors = _validationErrors ??= new(global::System.StringComparer.Ordinal);
+                if (validationErrors.TryGetValue(propertyName, out var errors))
                 {
-                    if (current.Contains(message))
+                    if (errors.Contains(message))
                     {
                         return;// no change
                     }
-                    var copy = new global::System.Collections.Generic.List<string>(current.Count + 1);
-                    copy.AddRange(current);
-                    copy.Add(message);
-                    if (validationErrors.TryUpdate(propertyName, copy, current))
-                    {
-                        break;
-                    }
-                    continue;
+
+                    errors.Add(message);
                 }
                 else
                 {
-                    errors ??= [message];
-                    if (validationErrors.TryAdd(propertyName, errors))
-                    {
-                        break;
-                    }
+                    validationErrors[propertyName] = [message];
                 }
+
+                raiseHasErrorsChanged = UpdateHasErrors();
             }
 
-            bool raiseHasErrorsChanged = UpdateHasErrors();
             OnErrorsChanged(raiseHasErrorsChanged, propertyName);
         }
 
@@ -233,10 +300,10 @@ partial struct NotifyDataErrorInfoGenerator
 
             propertyName ??= string.Empty;// null or "" => entity-level
 
-            var validationErrors = _validationErrors ??= new(global::System.StringComparer.Ordinal);
-            global::System.Collections.Generic.List<string>{{nullable}} errors = null;
-            while (true)
+            bool raiseHasErrorsChanged;
+            lock (_validationErrorsSyncRoot)
             {
+                var validationErrors = _validationErrors ??= new(global::System.StringComparer.Ordinal);
                 if (validationErrors.TryGetValue(propertyName, out var current))
                 {
                     var currentSet = new global::System.Collections.Generic.HashSet<string>(current, global::System.StringComparer.Ordinal);
@@ -245,35 +312,22 @@ partial struct NotifyDataErrorInfoGenerator
                         return;// no change
                     }
 
-                    var copy = new global::System.Collections.Generic.List<string>(checked(current.Count + unique.Count));
-                    copy.AddRange(current);
                     foreach (var msg in ordered!)
                     {
-                        if (!currentSet.Contains(msg))
+                        if (currentSet.Add(msg))
                         {
-                            copy.Add(msg);
+                            current.Add(msg);
                         }
                     }
-
-                    if (validationErrors.TryUpdate(propertyName, copy, current))
-                    {
-                        break;
-                    }
-                    // CAS failed — retry.
-                    continue;
                 }
                 else
                 {
-                    errors ??= new(ordered!);
-                    if (validationErrors.TryAdd(propertyName, errors))
-                    {
-                        break;
-                    }
-                    // CAS failed — retry.
+                    validationErrors[propertyName] = new(ordered!);
                 }
+
+                raiseHasErrorsChanged = UpdateHasErrors();
             }
 
-            bool raiseHasErrorsChanged = UpdateHasErrors();
             OnErrorsChanged(raiseHasErrorsChanged, propertyName);
         }
 
@@ -286,7 +340,7 @@ partial struct NotifyDataErrorInfoGenerator
         /// The name of the property; when <c>null</c> or empty, messages apply to the entity-level scope.
         /// </param>
         /// <remarks>
-        /// Performs a copy-on-write update; raises <see cref="ErrorsChanged"/> only when the target scope actually changes.
+        /// Replaces the target scope atomically; raises <see cref="ErrorsChanged"/> only when the target scope actually changes.
         /// </remarks>
         public void ReplaceErrors(global::System.Collections.Generic.IEnumerable<string>{{nullable}} messages, [global::System.Runtime.CompilerServices.CallerMemberName] string{{nullable}} propertyName = null)
         {
@@ -318,41 +372,23 @@ partial struct NotifyDataErrorInfoGenerator
 
             propertyName ??= string.Empty;// null or "" => entity-level
 
-            var validationErrors = _validationErrors ??= new(global::System.StringComparer.Ordinal);
-            global::System.Collections.Generic.List<string>{{nullable}} errors = null;
-            while (true)
+            bool raiseHasErrorsChanged;
+            lock (_validationErrorsSyncRoot)
             {
-                if (validationErrors.TryGetValue(propertyName, out var current))
+                var validationErrors = _validationErrors ??= new(global::System.StringComparer.Ordinal);
+                if (validationErrors.TryGetValue(propertyName, out var current) && current.Count == unique.Count)
                 {
-                    if (current.Count == unique.Count)
+                    var currentSet = new global::System.Collections.Generic.HashSet<string>(current, global::System.StringComparer.Ordinal);
+                    if (currentSet.SetEquals(unique))
                     {
-                        var currentSet = new global::System.Collections.Generic.HashSet<string>(current, global::System.StringComparer.Ordinal);
-                        if (currentSet.SetEquals(unique))
-                        {
-                            return;// no change
-                        }
+                        return;// no change
                     }
+                }
 
-                    errors ??= new(ordered!);
-                    if (validationErrors.TryUpdate(propertyName, errors, current))
-                    {
-                        break;
-                    }
-                    // CAS failed — retry.
-                    continue;
-                }
-                else
-                {
-                    errors ??= new(ordered!);
-                    if (validationErrors.TryAdd(propertyName, errors))
-                    {
-                        break;
-                    }
-                    // CAS failed — retry.
-                }
+                validationErrors[propertyName] = new(ordered!);
+                raiseHasErrorsChanged = UpdateHasErrors();
             }
 
-            bool raiseHasErrorsChanged = UpdateHasErrors();
             OnErrorsChanged(raiseHasErrorsChanged, propertyName);
         }
 
@@ -373,47 +409,26 @@ partial struct NotifyDataErrorInfoGenerator
                 return false;
             }
 
-            var validationErrors = _validationErrors;
-            if (validationErrors is null)
-            {
-                return false;
-            }
-
             propertyName ??= string.Empty;// null or "" => entity-level
 
-            while (true)
+            bool raiseHasErrorsChanged;
+            lock (_validationErrorsSyncRoot)
             {
-                if (!validationErrors.TryGetValue(propertyName, out var current) || current.Count == 0)
+                if (_validationErrors is null ||
+                    !_validationErrors.TryGetValue(propertyName, out var errors) ||
+                    !errors.Remove(message))
                 {
                     return false;
                 }
-                if (!current.Contains(message))
+
+                if (errors.Count == 0)
                 {
-                    return false;
+                    _validationErrors.Remove(propertyName);
                 }
-                if (current.Count == 1)
-                {
-                    if (validationErrors.TryRemove(propertyName, out _))
-                    {
-                        break;
-                    }
-                    continue;
-                }
-                var copy = new global::System.Collections.Generic.List<string>(current.Count - 1);
-                foreach (var msg in current)
-                {
-                    if (!global::System.StringComparer.Ordinal.Equals(msg, message))
-                    {
-                        copy.Add(msg);
-                    }
-                }
-                if (validationErrors.TryUpdate(propertyName, copy, current))
-                {
-                    break;
-                }
+
+                raiseHasErrorsChanged = UpdateHasErrors();
             }
 
-            bool raiseHasErrorsChanged = UpdateHasErrors();
             OnErrorsChanged(raiseHasErrorsChanged, propertyName);
             return true;
         }
@@ -426,19 +441,20 @@ partial struct NotifyDataErrorInfoGenerator
         /// </param>
         public void ClearErrors([global::System.Runtime.CompilerServices.CallerMemberName] string{{nullable}} propertyName = null)
         {
-            var validationErrors = _validationErrors;
-            if (validationErrors is null || validationErrors.IsEmpty)
-            {
-                return;
-            }
-
             propertyName ??= string.Empty;// null or "" => entity-level
 
-            if (validationErrors.TryRemove(propertyName, out _))
+            bool raiseHasErrorsChanged;
+            lock (_validationErrorsSyncRoot)
             {
-                bool raiseHasErrorsChanged = UpdateHasErrors();
-                OnErrorsChanged(raiseHasErrorsChanged, propertyName);
+                if (_validationErrors is null || !_validationErrors.Remove(propertyName))
+                {
+                    return;
+                }
+
+                raiseHasErrorsChanged = UpdateHasErrors();
             }
+
+            OnErrorsChanged(raiseHasErrorsChanged, propertyName);
         }
 
         /// <summary>
@@ -446,31 +462,24 @@ partial struct NotifyDataErrorInfoGenerator
         /// </summary>
         public void ClearAllErrors()
         {
-            var validationErrors = _validationErrors;
-            if (validationErrors is null || validationErrors.IsEmpty)
+            string[] properties;
+            bool raiseHasErrorsChanged;
+            lock (_validationErrorsSyncRoot)
             {
-                return;
+                if (_validationErrors is not { Count: > 0 } validationErrors)
+                {
+                    return;
+                }
+
+                properties = new string[validationErrors.Count];
+                validationErrors.Keys.CopyTo(properties, 0);
+                validationErrors.Clear();
+                raiseHasErrorsChanged = UpdateHasErrors();
             }
 
-            global::System.Collections.Generic.List<string>{{nullable}} properties = null;
-            foreach (var pair in validationErrors)
+            foreach (var propertyName in properties)
             {
-                if (pair.Value.Count == 0)
-                {
-                    continue;
-                }
-                (properties ??= new()).Add(pair.Key);
-            }
-
-            validationErrors.Clear();
-
-            bool raiseHasErrorsChanged = UpdateHasErrors();
-            if (properties is { })
-            {
-                foreach (var prop in properties)
-                {
-                    OnErrorsChanged(false, prop);
-                }
+                OnErrorsChanged(false, propertyName);
             }
 
             if (raiseHasErrorsChanged)
@@ -490,19 +499,19 @@ partial struct NotifyDataErrorInfoGenerator
         /// </returns>
         public global::System.Collections.Generic.IEnumerable<string> GetErrors(string{{nullable}} propertyName = null)
         {
-            var validationErrors = _validationErrors;
-            if (validationErrors is null || validationErrors.IsEmpty)
-            {
-                return [];
-            }
-
             propertyName ??= string.Empty;// null or "" => entity-level
 
-            if (!validationErrors.TryGetValue(propertyName, out var errors) || errors.Count == 0)
+            lock (_validationErrorsSyncRoot)
             {
-                return [];
+                if (_validationErrors is null ||
+                    !_validationErrors.TryGetValue(propertyName, out var errors) ||
+                    errors.Count == 0)
+                {
+                    return [];
+                }
+
+                return errors.ToArray();
             }
-            return errors.ToArray();
         }
 
         /// <summary>
@@ -511,33 +520,35 @@ partial struct NotifyDataErrorInfoGenerator
         /// </summary>
         public global::System.Collections.Generic.IReadOnlyDictionary<string, string[]> GetErrorsSnapshot()
         {
-            var validationErrors = _validationErrors;
-            if (validationErrors is null || validationErrors.IsEmpty)
+            global::System.Collections.Generic.Dictionary<string, string[]> copy;
+            lock (_validationErrorsSyncRoot)
             {
-#if NET8_0_OR_GREATER
-                return global::System.Collections.Frozen.FrozenDictionary<string, string[]>.Empty;
-#else
-                return s_emptyErrorsMap;
-#endif
-            }
-            var copy = new global::System.Collections.Generic.Dictionary<string, string[]>(validationErrors.Count, global::System.StringComparer.Ordinal);
-            foreach (var pair in validationErrors)
-            {
-                var list = pair.Value;
-                if (list.Count > 0)
+                if (_validationErrors is not { Count: > 0 } validationErrors)
                 {
-                    copy[pair.Key] = list.ToArray();
+        #if NET8_0_OR_GREATER
+                    return global::System.Collections.Frozen.FrozenDictionary<string, string[]>.Empty;
+        #else
+                    return s_emptyErrorsMap;
+        #endif
+                }
+
+                copy = new(validationErrors.Count, global::System.StringComparer.Ordinal);
+                foreach (var pair in validationErrors)
+                {
+                    if (pair.Value.Count > 0)
+                    {
+                        copy[pair.Key] = pair.Value.ToArray();
+                    }
                 }
             }
 
-#if NET8_0_OR_GREATER
+        #if NET8_0_OR_GREATER
             return copy.Count == 0 ? global::System.Collections.Frozen.FrozenDictionary<string, string[]>.Empty :
                 global::System.Collections.Frozen.FrozenDictionary.ToFrozenDictionary(copy, global::System.StringComparer.Ordinal);
-#else
+        #else
             return copy.Count == 0 ? s_emptyErrorsMap :
                 new global::System.Collections.ObjectModel.ReadOnlyDictionary<string, string[]>(copy);
-#endif
-
+        #endif
         }
 
         /// <summary>
@@ -549,15 +560,14 @@ partial struct NotifyDataErrorInfoGenerator
         /// <returns><c>true</c> if the scope currently has errors; otherwise, <c>false</c>.</returns>
         public bool HasErrorsFor([global::System.Runtime.CompilerServices.CallerMemberName] string{{nullable}} propertyName = null)
         {
-            var validationErrors = _validationErrors;
-            if (validationErrors is null || validationErrors.IsEmpty)
-            {
-                return false;
-            }
-
             propertyName ??= string.Empty;// null or "" => entity-level
 
-            return validationErrors.TryGetValue(propertyName, out var errors) && errors.Count > 0;
+            lock (_validationErrorsSyncRoot)
+            {
+                return _validationErrors is { } validationErrors &&
+                       validationErrors.TryGetValue(propertyName, out var errors) &&
+                       errors.Count > 0;
+            }
         }
 
         /// <summary>
@@ -648,26 +658,14 @@ partial struct NotifyDataErrorInfoGenerator
         [global::System.ComponentModel.EditorBrowsable(global::System.ComponentModel.EditorBrowsableState.Never)]
         private bool UpdateHasErrors()
         {
-            int hasErrors = 0;
-            var validationErrors = _validationErrors;
-            if (validationErrors is not null && !validationErrors.IsEmpty)
+            bool hasErrors = _validationErrors is { Count: > 0 };
+            if (_hasErrors == hasErrors)
             {
-                foreach (var pair in validationErrors)
-                {
-                    if (pair.Value.Count > 0)
-                    {
-                        hasErrors = 1;
-                        break;
-                    }
-                }
+                return false;
             }
-            var oldValue = _hasErrors;
-            if (oldValue != hasErrors)
-            {
-                _hasErrors = hasErrors;
-                return true;
-            }
-            return false;
+
+            _hasErrors = hasErrors;
+            return true;
         }
 
         #endregion
@@ -696,7 +694,7 @@ partial struct NotifyDataErrorInfoGenerator
             => GetErrors(propertyName);
 
         /// <inheritdoc />
-        public bool HasErrors => _hasErrors == 1;
+        public bool HasErrors => _hasErrors;
 
         #endregion
 """;

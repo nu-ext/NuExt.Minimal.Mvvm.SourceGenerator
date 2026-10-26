@@ -1,10 +1,10 @@
-﻿using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Newtonsoft.Json;
-using System.CodeDom.Compiler;
+﻿using System.CodeDom.Compiler;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Xml.Linq;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Newtonsoft.Json;
 
 namespace Minimal.Mvvm.SourceGenerator;
 
@@ -30,29 +30,65 @@ internal struct LocalizePropertyGenerator
         return attributeTarget is ClassDeclarationSyntax;
     }
 
-    public static bool IsValidContainingType(INamedTypeSymbol typeSymbol,
-        ImmutableArray<AttributeData> attributes,
-        ImmutableArray<(string name, AdditionalText text)> additionalTexts)
+    public static bool IsValidConfiguration(ImmutableArray<AttributeData> attributes, ImmutableArray<(string name, AdditionalText text)> additionalTexts)
     {
-        _ = typeSymbol;
         var localizeAttribute = GetLocalizeAttribute(attributes);
         if (localizeAttribute == null)
         {
             return false;
         }
+
         var localizeAttributeData = GetLocalizeAttributeData(localizeAttribute);
         if (string.IsNullOrEmpty(localizeAttributeData.JsonFileName))
         {
             return false;
         }
-        var jsonFileName = Path.GetFileName(localizeAttributeData.JsonFileName);
 
+        var jsonFileName = Path.GetFileName(localizeAttributeData.JsonFileName);
         return additionalTexts.Any(pair => pair.name == jsonFileName);
     }
 
-    #endregion
+    internal static bool TryValidateJson(ImmutableArray<AttributeData> attributes, ImmutableArray<(string name, AdditionalText text)> additionalTexts, out string? jsonFileName, out string? error)
+    {
+        error = null;
 
-    #region Methods
+        var localizeAttribute = GetLocalizeAttribute(attributes)!;
+        var localizeAttributeData = GetLocalizeAttributeData(localizeAttribute);
+        jsonFileName = Path.GetFileName(localizeAttributeData.JsonFileName);
+        var fileName = jsonFileName;
+        var text = additionalTexts.First(pair => pair.name == fileName).text.GetText();
+
+        if (text is null)
+        {
+            error = "The localization file could not be read.";
+            return false;
+        }
+
+        try
+        {
+            var translations = JsonConvert.DeserializeObject<Dictionary<string, string>>(text.ToString());
+            if (translations is null)
+            {
+                error = "The localization file must contain a JSON object.";
+                return false;
+            }
+
+            if (translations.Any(static pair => pair.Value is null))
+            {
+                error = "Localization values cannot be null.";
+                return false;
+            }
+
+            return true;
+        }
+        catch (JsonException ex)
+        {
+            error = ex.Message;
+            return false;
+        }
+    }
+
+    #endregion
 
     public static void Generate(scoped LocalizePropertyGeneratorContext ctx, ref bool isFirst)
     {
@@ -182,6 +218,4 @@ internal struct LocalizePropertyGenerator
         }
         return new LocalizeAttributeData(jsonFileName);
     }
-
-    #endregion
 }
