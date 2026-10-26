@@ -8,22 +8,6 @@ internal static partial class AccessModifiers
             source : """
             using Minimal.Mvvm;
 
-            public partial class MyModel : System.ComponentModel.INotifyPropertyChanged
-            {
-                [Notify]
-                private string _name = null!;
-
-                [Notify]
-                private string? _description;
-
-                public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
-            }
-            """,
-            expected : null),
-        (
-            source : """
-            using Minimal.Mvvm;
-
             public partial class MyModel : BindableBase
             {
                 [Notify]

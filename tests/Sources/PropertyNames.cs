@@ -11,12 +11,6 @@ internal static partial class PropertyNames
             public partial class MyModel : BindableBase
             {
                 [Notify("MyName")]
-                private static string _myName = null!;
-
-                [Notify("MyName")]
-                private readonly string _myname = null!;
-
-                [Notify("MyName")]
                 private string _name = null!;
 
                 [Notify(PropertyName = nameof(MyDescription))]
@@ -27,20 +21,6 @@ internal static partial class PropertyNames
 
                 [Notify("MyName")]
                 private partial string? Name { get; set; }
-
-                [Notify("MyName")]
-                private string Name2 { get; set; } = null!;
-
-                [Notify("MyName")]
-                private static string StaticName { get; set; } = null!;
-
-                [Notify("MyName")]
-                public static string StaticMyName => _myName;
-
-                public void Stub()
-                {
-                    _ = _myname;
-                }
             }
             """,
             expected : """

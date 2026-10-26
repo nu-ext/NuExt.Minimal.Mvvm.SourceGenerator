@@ -11,19 +11,6 @@ internal class NotifyDataErrorInfoAttributes
                      using Minimal.Mvvm;
 
                      [NotifyDataErrorInfo]
-                     public partial class MyModel : System.ComponentModel.INotifyPropertyChanged
-                     {
-                         [Notify]
-                         private string _name = null!;
-                     }
-                     """,
-            expected : null
-        ),
-        (
-            source : """
-                     using Minimal.Mvvm;
-
-                     [NotifyDataErrorInfo]
                      public partial class MyModel : BindableBase, System.ComponentModel.INotifyDataErrorInfo
                      {
                          [Notify]

@@ -96,7 +96,9 @@ internal abstract class SourceGeneratorTestBase
             return;
         }
 
-        var generatedSource = generatorResult.GeneratedSources[7];
+        var postInitializationHintNames = Generator.Sources.Select(static source => source.hintName).ToHashSet(StringComparer.Ordinal);
+        var generatedSource = generatorResult.GeneratedSources.Single(source => !IsInfrastructureSource(source.HintName, postInitializationHintNames));
+
         var generatedSourceTreeText = generatedSource.SyntaxTree.ToString();
         var generatedSourceText = generatedSource.SourceText.ToString();
         Assert.That(generatedSourceTreeText, Is.EqualTo(generatedSourceText));
@@ -112,6 +114,14 @@ internal abstract class SourceGeneratorTestBase
         var expectedSourceLines = GetSourceLines(expectedSource!);
 
         Assert.That(generatedSourceLines, Is.EqualTo(expectedSourceLines));
+    }
+
+    private static bool IsInfrastructureSource(string hintName, HashSet<string> postInitializationHintNames)
+    {
+        return postInitializationHintNames.Contains(hintName) ||
+               hintName == $"{EventArgsCacheGenerator.GeneratedNamespace}.{EventArgsCacheGenerator.GeneratedClassName}.g.cs" ||
+               hintName == $"{DataErrorsChangedEventArgsCacheGenerator.GeneratedNamespace}.{DataErrorsChangedEventArgsCacheGenerator.GeneratedClassName}.g.cs" ||
+               hintName == Generator.RequerySuggestedEventManagerSource.hintName;
     }
 
     protected static (CSharpCompilation? outputCompilation, ImmutableArray<Diagnostic> diagnostics, GeneratorRunResult generatorResult) RunGenerator(CSharpCompilation compilation)
