@@ -1,4 +1,5 @@
-﻿using Microsoft.CodeAnalysis;
+﻿using System.Collections.Immutable;
+using Microsoft.CodeAnalysis;
 
 namespace Minimal.Mvvm.SourceGenerator;
 
@@ -6,10 +7,23 @@ partial struct NotifyPropertyGenerator
 {
     #region Methods
 
-    internal static bool IsValidFieldSignature(Compilation compilation, IFieldSymbol fieldSymbol)
+    internal static bool IsValidFieldSignature(Compilation compilation, IFieldSymbol fieldSymbol, ImmutableArray<AttributeData> attributes)
     {
         _ = compilation;
-        return fieldSymbol is { IsStatic: false, IsReadOnly: false };
+
+        if (fieldSymbol.IsStatic || fieldSymbol.IsReadOnly)
+        {
+            return false;
+        }
+
+        var notifyAttribute = GetNotifyAttribute(attributes);
+        if (notifyAttribute is null)
+        {
+            return false;
+        }
+
+        var notifyAttributeData = GetNotifyAttributeData(notifyAttribute);
+        return !string.IsNullOrWhiteSpace(notifyAttributeData.PropertyName) || GetPropertyNameFromFieldName(fieldSymbol.Name) is not null;
     }
 
     private static void GenerateForField(scoped Generator.GeneratorContext genCtx, scoped NotifyPropertyGeneratorContext ctx, IFieldSymbol fieldSymbol, ref bool isFirst)
@@ -30,15 +44,15 @@ partial struct NotifyPropertyGenerator
         var propertyName = !string.IsNullOrWhiteSpace(notifyAttributeData.PropertyName) ? notifyAttributeData.PropertyName! : GetPropertyNameFromFieldName(backingFieldName);
 
         var propertyType = fieldSymbol.Type;
-        var callbackData = GetCallbackData(fieldSymbol.ContainingType, propertyType, notifyAttributeData);
+        var callbackData = GetCallbackData(genCtx.Compilation, fieldSymbol.ContainingType, propertyType, notifyAttributeData);
 
         bool isCommand = GetIsCommand(genCtx.Compilation, propertyType);
         var fullyQualifiedTypeName = propertyType.ToDisplayString(SymbolDisplayFormats.FullyQualifiedTypeName);
 
         var propCtx = new NotifyPropertyContext(notifyAttributeData, callbackData, customAttributeData, alsoNotifyAttributeData,
             useCommandManagerAttributeData, isCommand, 
-            fieldSymbol.GetComment(), fullyQualifiedTypeName, isPartial: false,
-            propertyName, backingFieldName, generateBackingFieldName: false, initializeStringBackingField: false);
+            fieldSymbol.GetComment(), fullyQualifiedTypeName, isPartial: false, isInitOnly: false,
+            propertyName!, backingFieldName, generateBackingFieldName: false, initializeStringBackingField: false);
 
         GenerateProperty(genCtx, ctx, propCtx, ref isFirst);
     }
@@ -52,7 +66,7 @@ partial struct NotifyPropertyGenerator
         return false;
     }
 
-    private static string GetPropertyNameFromFieldName(string backingFieldName)
+    private static string? GetPropertyNameFromFieldName(string backingFieldName)
     {
         var propertyName = backingFieldName;
         if (propertyName.StartsWith("_"))
@@ -62,9 +76,10 @@ partial struct NotifyPropertyGenerator
 
         if (propertyName.Length == 0)
         {
-            return "Empty";
+            return null;
         }
-        propertyName = char.ToUpper(propertyName[0]) + propertyName.Substring(1);
+
+        propertyName = char.ToUpperInvariant(propertyName[0]) + propertyName.Substring(1);
         return propertyName;
     }
 

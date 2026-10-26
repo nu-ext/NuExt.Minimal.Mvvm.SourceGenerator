@@ -1,5 +1,6 @@
 ﻿using System.CodeDom.Compiler;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace Minimal.Mvvm.SourceGenerator;
@@ -7,7 +8,7 @@ namespace Minimal.Mvvm.SourceGenerator;
 internal struct CommandGenerator
 {
     internal const string GenerateCommandsAttributeFullyQualifiedMetadataName = "Minimal.Mvvm.GenerateCommandsAttribute";
-    private const string ControlViewModelFullyQualifiedMetadataName = "Minimal.Mvvm.Wpf.ControlViewModel";
+    private const string CommandViewModelBaseFullyQualifiedMetadataName = "Minimal.Mvvm.Wpf.CommandViewModelBase";
 
     private static readonly string[] s_infrastructureMethodNames = ["CreateCommands", "GetCurrentCommand", "GetAllCommands", "NullifyCommands"];
 
@@ -21,7 +22,7 @@ internal struct CommandGenerator
 
     internal static bool IsValidContainingType(Compilation compilation, INamedTypeSymbol typeSymbol)
     {
-        var controlViewModelType = compilation.GetTypeByMetadataName(ControlViewModelFullyQualifiedMetadataName);
+        var controlViewModelType = compilation.GetTypeByMetadataName(CommandViewModelBaseFullyQualifiedMetadataName);
         return controlViewModelType is not null && typeSymbol.InheritsFromType(controlViewModelType);
     }
 
@@ -31,28 +32,50 @@ internal struct CommandGenerator
 
     internal static IEnumerable<IMethodSymbol> GetDeclaredInfrastructureMethods(Compilation compilation, INamedTypeSymbol typeSymbol)
     {
-        var controlViewModelType = compilation.GetTypeByMetadataName(ControlViewModelFullyQualifiedMetadataName);
-        if (controlViewModelType is null)
+        var commandViewModelBaseType = compilation.GetTypeByMetadataName(CommandViewModelBaseFullyQualifiedMetadataName);
+        if (commandViewModelBaseType is null)
         {
             yield break;
         }
 
         foreach (var member in typeSymbol.GetMembers())
         {
-            if (member is IMethodSymbol { IsOverride: true } methodSymbol &&
+            if (member is IMethodSymbol methodSymbol &&
                 s_infrastructureMethodNames.Contains(methodSymbol.Name) &&
-                OverridesInfrastructureMethod(methodSymbol, controlViewModelType))
+                HasInfrastructureSignature(methodSymbol, commandViewModelBaseType))
             {
                 yield return methodSymbol;
             }
         }
     }
 
-    private static bool OverridesInfrastructureMethod(IMethodSymbol methodSymbol, INamedTypeSymbol controlViewModelType)
+    private static bool HasInfrastructureSignature(IMethodSymbol methodSymbol, INamedTypeSymbol commandViewModelBaseType)
     {
-        for (var overriddenMethod = methodSymbol.OverriddenMethod; overriddenMethod is not null; overriddenMethod = overriddenMethod.OverriddenMethod)
+        foreach (var member in commandViewModelBaseType.GetMembers(methodSymbol.Name))
         {
-            if (SymbolEqualityComparer.Default.Equals(overriddenMethod.ContainingType, controlViewModelType))
+            if (member is not IMethodSymbol infrastructureMethod ||
+                methodSymbol.Arity != infrastructureMethod.Arity ||
+                methodSymbol.Parameters.Length != infrastructureMethod.Parameters.Length)
+            {
+                continue;
+            }
+
+            bool matches = true;
+
+            for (int i = 0; i < methodSymbol.Parameters.Length; i++)
+            {
+                var parameter = methodSymbol.Parameters[i];
+                var infrastructureParameter = infrastructureMethod.Parameters[i];
+
+                if (parameter.RefKind != infrastructureParameter.RefKind ||
+                    !SymbolEqualityComparer.Default.Equals(parameter.Type, infrastructureParameter.Type))
+                {
+                    matches = false;
+                    break;
+                }
+            }
+
+            if (matches)
             {
                 return true;
             }
@@ -61,10 +84,11 @@ internal struct CommandGenerator
         return false;
     }
 
-    internal static bool TryGetCommandInfo(Compilation compilation, IMethodSymbol methodSymbol, out CommandInfo commandInfo, out CanExecuteResolution canExecuteResolution)
+    internal static bool TryGetCommandInfo(Compilation compilation, IMethodSymbol methodSymbol, out CommandInfo commandInfo, out CanExecuteResolution canExecuteResolution, out string? canExecuteName)
     {
         commandInfo = default;
         canExecuteResolution = CanExecuteResolution.None;
+        canExecuteName = null;
 
         var attributes = methodSymbol.GetAttributes();
         var commandAttribute = NotifyPropertyGenerator.GetCommandAttribute(attributes);
@@ -84,7 +108,7 @@ internal struct CommandGenerator
         IMethodSymbol? canExecuteMethod = null;
         if (commandAttribute is not null)
         {
-            canExecuteResolution = TryGetCanExecuteMethod(compilation, methodSymbol, commandAttribute, out canExecuteMethod);
+            canExecuteResolution = TryGetCanExecuteMethod(compilation, methodSymbol, commandAttribute, out canExecuteMethod, out canExecuteName);
             if (canExecuteResolution is CanExecuteResolution.NotFound or CanExecuteResolution.InvalidSignature)
             {
                 return false;
@@ -99,11 +123,11 @@ internal struct CommandGenerator
         return true;
     }
 
-    private static CanExecuteResolution TryGetCanExecuteMethod(Compilation compilation, IMethodSymbol executeMethod, AttributeData commandAttribute, out IMethodSymbol? canExecuteMethod)
+    private static CanExecuteResolution TryGetCanExecuteMethod(Compilation compilation, IMethodSymbol executeMethod, AttributeData commandAttribute, out IMethodSymbol? canExecuteMethod, out string? canExecuteName)
     {
         canExecuteMethod = null;
 
-        var canExecuteName = NotifyPropertyGenerator.GetCommandCanExecuteName(commandAttribute);
+        canExecuteName = NotifyPropertyGenerator.GetCommandCanExecuteName(commandAttribute);
         bool isExplicit = !string.IsNullOrWhiteSpace(canExecuteName);
         if (!isExplicit)
         {
@@ -121,32 +145,47 @@ internal struct CommandGenerator
         {
             foreach (var member in type.GetMembers(canExecuteName!))
             {
-                if (member is not IMethodSymbol method)
+                if (member is not IMethodSymbol method ||
+                    !compilation.IsSymbolAccessibleWithin(method, executeMethod.ContainingType))
                 {
                     continue;
                 }
 
                 found = true;
+
                 if (IsCompatibleCanExecuteMethod(compilation, executeMethod, method))
                 {
                     canExecuteMethod = method;
                     return CanExecuteResolution.Resolved;
                 }
+
+                if (isExplicit && canExecuteMethod is null)
+                {
+                    canExecuteMethod = method;
+                }
+            }
+
+            if (found)
+            {
+                break;
             }
         }
 
-        if (!isExplicit)
+        if (isExplicit)
         {
-            return CanExecuteResolution.None;
+            return found ? CanExecuteResolution.Resolved : CanExecuteResolution.NotFound;
         }
 
-        return found ? CanExecuteResolution.InvalidSignature : CanExecuteResolution.NotFound;
+        return found ? CanExecuteResolution.InvalidSignature : CanExecuteResolution.None;
+
     }
 
     private static bool IsCompatibleCanExecuteMethod(Compilation compilation, IMethodSymbol executeMethod, IMethodSymbol canExecuteMethod)
     {
+        _ = compilation;
+
         if (canExecuteMethod.Arity != 0 ||
-            !compilation.IsSymbolAccessibleWithin(canExecuteMethod, executeMethod.ContainingType) ||
+            canExecuteMethod.ExplicitInterfaceImplementations.Length != 0 ||
             canExecuteMethod.ReturnType.SpecialType != SpecialType.System_Boolean ||
             canExecuteMethod.Parameters.Any(static parameter => parameter.RefKind != RefKind.None))
         {
@@ -188,6 +227,11 @@ internal struct CommandGenerator
         GenerateNullifyCommands(writer, commandInfos, ref isFirst);
     }
 
+    private static string EscapeIdentifier(string identifier)
+    {
+        return SyntaxFacts.GetKeywordKind(identifier) != SyntaxKind.None ? "@" + identifier : identifier;
+    }
+
     private static void GenerateCreateCommands(IndentedTextWriter writer, IReadOnlyList<CommandInfo> commandInfos, ref bool isFirst)
     {
         WriteSeparator(writer, ref isFirst);
@@ -196,9 +240,14 @@ internal struct CommandGenerator
         writer.Indent++;
         writer.WriteLine("base.CreateCommands();");
 
+        if (commandInfos.Count > 0)
+        {
+            writer.WriteLineNoTabs(string.Empty);
+        }
+
         foreach (var commandInfo in commandInfos)
         {
-            writer.Write($"{commandInfo.PropertyName} = new ");
+            writer.Write($"{EscapeIdentifier(commandInfo.PropertyName)} = new ");
 
             switch (commandInfo.ExecutionKind)
             {
@@ -218,11 +267,10 @@ internal struct CommandGenerator
                 writer.Write($"<{commandInfo.ParameterType.ToDisplayString(SymbolDisplayFormats.FullyQualifiedTypeName)}>");
             }
 
-            writer.Write($"({commandInfo.ExecuteMethod.Name}");
-
+            writer.Write($"({EscapeIdentifier(commandInfo.ExecuteMethod.Name)}");
             if (commandInfo.CanExecuteMethod is not null)
             {
-                writer.Write($", {commandInfo.CanExecuteMethod.Name}");
+                writer.Write($", {EscapeIdentifier(commandInfo.CanExecuteMethod.Name)}");
             }
 
             writer.WriteLine(");");
@@ -244,7 +292,7 @@ internal struct CommandGenerator
 
         foreach (var commandInfo in commandInfos)
         {
-            writer.WriteLine($"nameof({commandInfo.ExecuteMethod.Name}) => {commandInfo.PropertyName},");
+            writer.WriteLine($"nameof({EscapeIdentifier(commandInfo.ExecuteMethod.Name)}) => {EscapeIdentifier(commandInfo.PropertyName)},");
         }
 
         writer.WriteLine("_ => base.GetCurrentCommand(callerName)");
@@ -262,9 +310,14 @@ internal struct CommandGenerator
         writer.Indent++;
         writer.WriteLine("base.GetAllCommands(ref builder);");
 
+        if (commandInfos.Count > 0)
+        {
+            writer.WriteLineNoTabs(string.Empty);
+        }
+
         foreach (var commandInfo in commandInfos)
         {
-            writer.WriteLine($"builder.Append((nameof({commandInfo.PropertyName}), {commandInfo.PropertyName}));");
+            writer.WriteLine($"builder.Append((nameof({EscapeIdentifier(commandInfo.PropertyName)}), {EscapeIdentifier(commandInfo.PropertyName)}));");
         }
 
         writer.Indent--;
@@ -280,7 +333,12 @@ internal struct CommandGenerator
 
         foreach (var commandInfo in commandInfos)
         {
-            writer.WriteLine($"{commandInfo.PropertyName} = null;");
+            writer.WriteLine($"{EscapeIdentifier(commandInfo.PropertyName)} = null;");
+        }
+
+        if (commandInfos.Count > 0)
+        {
+            writer.WriteLineNoTabs(string.Empty);
         }
 
         writer.WriteLine("base.NullifyCommands();");

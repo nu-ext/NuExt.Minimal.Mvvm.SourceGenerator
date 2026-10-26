@@ -1,6 +1,6 @@
 ﻿namespace Minimal.Mvvm;
 
-[AttributeUsage(AttributeTargets.Field | AttributeTargets.Method, Inherited = false, AllowMultiple = false)]
+[AttributeUsage(AttributeTargets.Field | AttributeTargets.Property | AttributeTargets.Method, Inherited = false, AllowMultiple = false)]
 internal sealed class NotifyAttribute : Attribute
 {
     public NotifyAttribute()

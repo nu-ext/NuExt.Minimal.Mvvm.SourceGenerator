@@ -20,6 +20,6 @@ NUEXT012 | Usage    | Error    | Command can-execute method not found
 NUEXT013 | Usage    | Error    | Invalid command can-execute method signature
 NUEXT014 | Usage    | Error    | Command type not found
 NUEXT015 | Usage    | Error    | Duplicate command method name
-NUEXT016 | Usage    | Error    | Duplicate command property name
-NUEXT017 | Usage    | Error    | Command property is already declared
+NUEXT016 | Usage    | Error    | Duplicate generated property name
+NUEXT017 | Usage    | Error    | Generated property is already declared
 NUEXT018 | Usage    | Error    | Invalid localization file

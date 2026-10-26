@@ -112,7 +112,7 @@ public partial class Generator : IIncrementalGenerator
                                         symbol.Locations.FirstOrDefault(), symbol.ContainingType.Name, symbol.Name, attributeType));
                                     continue;
                                 }
-                                if (!NotifyPropertyGenerator.IsValidFieldSignature(compilation, fieldSymbol))
+                                if (!NotifyPropertyGenerator.IsValidFieldSignature(compilation, fieldSymbol, attributes))
                                 {
                                     // second, report and skip if field is not valid
                                     context.ReportDiagnostic(Diagnostic.Create(Diagnostics.InvalidNotifyFieldSignature,
@@ -330,26 +330,81 @@ public partial class Generator : IIncrementalGenerator
                 }
 
                 backingFieldNameCache.Clear();
+                foreach (var member in containingType.GetMembers())
+                {
+                    backingFieldNameCache.Add(member.Name);
+                }
 
                 bool generateCommands = members.Any(static item => item.attributeType == AttributeType.GenerateCommands);
                 var commandInfos = new List<CommandInfo>();
-
                 bool hasInvalidCommandInfo = false;
+
+                var generatedProperties = members
+                    .Where(static item => item.attributeType is AttributeType.Notify or AttributeType.Command)
+                    .Select(static item => (item.member, propertyName: NotifyPropertyGenerator.GetGeneratedPropertyName(item.member)))
+                    .Where(static item => item.propertyName is not null)
+                    .Select(static item => (item.member, propertyName: item.propertyName!))
+                    .ToList();
+
+                var invalidGeneratedMembers = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+
+                foreach (var group in generatedProperties
+                             .GroupBy(static item => item.propertyName, StringComparer.Ordinal)
+                             .Where(static group => group.Skip(1).Any()))
+                {
+                    foreach (var item in group)
+                    {
+                        invalidGeneratedMembers.Add(item.member);
+
+                        if (generateCommands && item.member is IMethodSymbol)
+                        {
+                            hasInvalidCommandInfo = true;
+                        }
+
+                        context.ReportDiagnostic(Diagnostic.Create(
+                            Diagnostics.DuplicateGeneratedPropertyName,
+                            item.member.Locations.FirstOrDefault(),
+                            containingType.Name,
+                            item.propertyName));
+                    }
+                }
+
+                foreach (var item in generatedProperties)
+                {
+                    if (item.member is IPropertySymbol || containingType.GetMembers(item.propertyName).Length == 0)
+                    {
+                        continue;
+                    }
+
+                    invalidGeneratedMembers.Add(item.member);
+
+                    if (generateCommands && item.member is IMethodSymbol)
+                    {
+                        hasInvalidCommandInfo = true;
+                    }
+
+                    context.ReportDiagnostic(Diagnostic.Create(Diagnostics.GeneratedPropertyAlreadyDeclared,
+                        item.member.Locations.FirstOrDefault(), containingType.Name, item.propertyName, item.member.Name));
+                }
+
                 if (generateCommands)
                 {
-                    foreach (var commandMethod in members.Where(static item => item is { member: IMethodSymbol, attributeType: AttributeType.Notify or AttributeType.Command })
-                                 .Select(static item => (IMethodSymbol)item.member))
+                    foreach (var commandMethod in members
+                                 .Where(static item => item is
+                                 {
+                                     member: IMethodSymbol,
+                                     attributeType: AttributeType.Notify or AttributeType.Command
+                                 })
+                                 .Select(static item => (IMethodSymbol)item.member)
+                                 .Where(method => !invalidGeneratedMembers.Contains(method)))
                     {
-                        if (CommandGenerator.TryGetCommandInfo(compilation, commandMethod, out var commandInfo, out var canExecuteResolution))
+                        if (CommandGenerator.TryGetCommandInfo(compilation, commandMethod, out var commandInfo, out var canExecuteResolution, out var canExecuteName))
                         {
                             commandInfos.Add(commandInfo);
                             continue;
                         }
 
                         hasInvalidCommandInfo = true;
-
-                        var commandAttribute = NotifyPropertyGenerator.GetCommandAttribute(commandMethod.GetAttributes());
-                        var canExecuteName = commandAttribute is null ? null : NotifyPropertyGenerator.GetCommandCanExecuteName(commandAttribute);
 
                         if (canExecuteResolution == CanExecuteResolution.NotFound)
                         {
@@ -379,29 +434,6 @@ public partial class Generator : IIncrementalGenerator
                         }
                     }
 
-                    foreach (var group in commandInfos.GroupBy(static commandInfo => commandInfo.PropertyName, StringComparer.Ordinal).Where(static group => group.Skip(1).Any()))
-                    {
-                        hasInvalidCommandInfo = true;
-
-                        foreach (var commandInfo in group)
-                        {
-                            context.ReportDiagnostic(Diagnostic.Create(Diagnostics.DuplicateCommandPropertyName,
-                                commandInfo.ExecuteMethod.Locations.FirstOrDefault(), containingType.Name, commandInfo.PropertyName));
-                        }
-                    }
-
-                    foreach (var commandInfo in commandInfos)
-                    {
-                        if (containingType.GetMembers(commandInfo.PropertyName).Length == 0)
-                        {
-                            continue;
-                        }
-
-                        hasInvalidCommandInfo = true;
-                        context.ReportDiagnostic(Diagnostic.Create(Diagnostics.CommandPropertyAlreadyDeclared,
-                            commandInfo.ExecuteMethod.Locations.FirstOrDefault(), containingType.Name, commandInfo.PropertyName, commandInfo.ExecuteMethod.Name));
-                    }
-
                 } // generateCommands
 
                 bool isFirst = true;
@@ -411,7 +443,9 @@ public partial class Generator : IIncrementalGenerator
                     {
                         case AttributeType.Notify:
                         case AttributeType.Command:
-                            NotifyPropertyGenerator.Generate(genCtx, new NotifyPropertyGeneratorContext(writer, group.Select(m => m.member), containingType.Name + '.', backingFieldNameCache), ref isFirst);
+                            NotifyPropertyGenerator.Generate(genCtx, new NotifyPropertyGeneratorContext(writer,
+                                    group.Select(static item => item.member).Where(member => !invalidGeneratedMembers.Contains(member)),
+                                    containingType.Name + '.', backingFieldNameCache), ref isFirst);
                             break;
 
                         case AttributeType.NotifyDataErrorInfo:
@@ -441,13 +475,32 @@ public partial class Generator : IIncrementalGenerator
                 writer.WriteSourceNamespaceEnd(containingNamespace);
                 var sourceText = sb.ToString();
 
+                // generated file name: <namespace>.<type>.g.cs
                 sb.Clear();
-                sb.Append(containingType.ToDisplayString(SymbolDisplayFormats.GeneratedFileName));
-                if (containingType.Arity > 0)
+
+                if (containingNamespace is not null)
                 {
-                    sb.Append('`');
-                    sb.Append(containingType.Arity);
+                    sb.Append(containingNamespace);
+                    sb.Append('.');
                 }
+
+                for (int i = outerTypes.Count - 1; i >= 0; i--)
+                {
+                    var type = containingType;
+
+                    for (int j = 0; j < i; j++)
+                    {
+                        type = type.ContainingType!;
+                    }
+
+                    sb.Append(type.MetadataName);
+
+                    if (i > 0)
+                    {
+                        sb.Append('.');
+                    }
+                }
+
                 sb.Append(".g.cs");
                 var generatedFileName = sb.ToString();
 
@@ -528,7 +581,10 @@ public partial class Generator : IIncrementalGenerator
             {
                 var spaceCount = TextUtils.GetSpaceCount(lines[i]);
 #if DEBUG
-                System.Diagnostics.Debug.Assert(spaceCount % 4 == 0);
+                if (!(spaceCount % 4 == 0))
+                {
+                    System.Diagnostics.Trace.WriteLine($"Warning: Line {i + 1} has an indent that is not a multiple of 4 spaces: {lines[i]}");
+                }
 #endif
                 indent = spaceCount / 4;
                 lines[i] = lines[i].Trim();

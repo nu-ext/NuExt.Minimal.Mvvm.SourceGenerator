@@ -16,46 +16,55 @@
 
 ## Features
 
-- **Properties and commands**
+- **Properties**
   - Generates observable properties from backing fields and partial properties.
-  - Generates command properties from synchronous and asynchronous methods.
   - Emits cached event arguments for allocation-free notification paths.
-  - Initializes generated backing fields for non-nullable partial `string` properties with `string.Empty`.
-
+  - Initializes generated backing fields for non-nullable partial `string` properties with `string.Empty` in nullable-enabled code.
+  - Supports related-property notifications through `[AlsoNotify]`.
+  - Supports attributes on generated members through `[CustomAttribute]`.
+- **Commands**
+  - Generates command properties from synchronous and asynchronous methods.
+  - Supports complete command generation through `[GenerateCommands]` and `[Command]`.
+  - Generates command instance creation and command initialization, lookup, enumeration, and cleanup overrides.
+  - Discovers `CanExecute` callbacks in the current type and its accessible base types.
+  - Supports explicit command names, `CanExecute` callback names, command-property accessibility, and WPF `CommandManager` integration.
 - **Validation (`INotifyDataErrorInfo`)**
   - Uses thread-safe, copy-on-write error storage.
   - Supports property-level and entity-level validation scopes.
   - Provides synchronous and asynchronous validation helpers.
-
-- **WPF command requery**
-  - `[UseCommandManager]` connects generated command properties to `CommandManager.RequerySuggested`.
-
 - **Localization**
-  - `[Localize]` generates localization properties from JSON files provided through `AdditionalFiles`.
-
-- **Generated member customization**
-  - `[AlsoNotify]` raises notifications for related properties.
-  - `[CustomAttribute]` applies attributes to generated members.
+  - Generates localization properties from JSON files supplied through MSBuild `AdditionalFiles`.
 
 ## Attributes
 
-- **`[Notify]`**: Generates a property from a field or partial property, or a command property from a method.
+- **`[GenerateCommands]`**: Enables complete command generation for a partial class derived from a compatible command ViewModel base class.
+- **`[Command]`**: Generates a command property and the code that creates its command instance from the annotated method, and includes the command in the generated lifecycle infrastructure.
+  - **Options:** `PropertyName`, `CanExecute`, `Getter`, `Setter`.
+- **`[Notify]`**: Generates an observable property from a field or partial property. When applied to a method, it provides command-property-only generation.
   - **Options:** `PropertyName`, `CallbackName`, `PreferCallbackWithParameter`, `Getter`, `Setter`.
-- **`[AlsoNotify]`**: Notifies additional properties when the annotated property changes.
+- **`[AlsoNotify]`**: Raises notifications for additional properties when the generated property changes.
 - **`[CustomAttribute]`**: Applies an attribute to a generated member.
-- **`[UseCommandManager]`**: Enables automatic `CanExecute` reevaluation for the generated command property in WPF.
-- **`[NotifyDataErrorInfo]`**: Generates validation infrastructure for `INotifyDataErrorInfo`.
-- **`[Localize]`**: Generates localization members from a JSON file provided through MSBuild `AdditionalFiles`.
+- **`[UseCommandManager]`**: Enables automatic `CanExecute` reevaluation through WPF `CommandManager.RequerySuggested`. Can be applied together with `[Command]` for complete command generation or with `[Notify]` for command-property-only generation.
+- **`[NotifyDataErrorInfo]`**: Generates `INotifyDataErrorInfo` infrastructure.
+- **`[Localize]`**: Generates localization members from a JSON file supplied through MSBuild `AdditionalFiles`.
 
 ## Install
 
-```bash
+```shell
 dotnet add package NuExt.Minimal.Mvvm.SourceGenerator
-# and one of:
+```
+
+Install the core package or a compatible UI integration package:
+
+```shell
 dotnet add package NuExt.Minimal.Mvvm
-# or
+```
+
+```shell
 dotnet add package NuExt.Minimal.Mvvm.Wpf
-# or
+```
+
+```shell
 dotnet add package NuExt.Minimal.Mvvm.MahApps.Metro
 ```
 
@@ -63,9 +72,10 @@ dotnet add package NuExt.Minimal.Mvvm.MahApps.Metro
 
 ```csharp
 using Minimal.Mvvm;
-using System.Threading.Tasks;
+using Minimal.Mvvm.Wpf;
 
-public partial class PersonModel : BindableBase
+[GenerateCommands]
+public partial class PersonViewModel : CommandViewModelBase
 {
     [Notify, AlsoNotify(nameof(FullName))]
     private string? _name;
@@ -75,13 +85,12 @@ public partial class PersonModel : BindableBase
 
     public string FullName => $"{_surname} {_name}";
 
-    public PersonModel()
+    private bool CanShowInfo(string? text)
     {
-        ShowInfoCommand = new AsyncCommand<string?>(ShowInfoAsync);
+        return !string.IsNullOrWhiteSpace(text);
     }
 
-    [Notify("ShowInfoCommand"), UseCommandManager]
-    [CustomAttribute("System.Text.Json.Serialization.JsonIgnore")]
+    [Command]
     private async Task ShowInfoAsync(string? text)
     {
         await Task.Delay(100);
@@ -89,12 +98,156 @@ public partial class PersonModel : BindableBase
 }
 ```
 
-`[Notify]` generates the `ShowInfoCommand` property. The command instance is created explicitly in the constructor, keeping command configuration deterministic and visible.
+`[GenerateCommands]` enables complete command generation for the class. `[Command]` generates `ShowInfoCommand` and the code that creates its command instance, binds `ShowInfoAsync` to the compatible `CanShowInfo` callback, and integrates the command into the ViewModel command lifecycle.
 
-**What you get (conceptually)**:
-- `Name/Surname` properties with `PropertyChanged` and `FullName` notifications.
-- `IAsyncCommand<string?>? ShowInfoCommand` property with WPF requery wiring (via `[UseCommandManager]`).
-- Cached PropertyChangedEventArgs etc. for allocation-free notifications.
+Conceptually, the generator produces:
+
+- `Name` and `Surname` properties with `PropertyChanged` notifications.
+- `FullName` notifications when either generated property changes.
+- An asynchronous `ShowInfoCommand` bound to `ShowInfoAsync`.
+- Automatic discovery and binding of `CanShowInfo`.
+- Command initialization, lookup, enumeration, and cleanup overrides.
+- Cached event arguments for allocation-free notification paths.
+
+## Command generation
+
+### Complete command generation
+
+Apply `[GenerateCommands]` to a partial class and `[Command]` to its command methods:
+
+```csharp
+using Minimal.Mvvm;
+using Minimal.Mvvm.Wpf;
+
+[GenerateCommands]
+public partial class EditorViewModel : CommandViewModelBase
+{
+    private bool CanSave()
+    {
+        return HasChanges;
+    }
+
+    [Command(Setter = AccessModifier.Private)]
+    private Task SaveAsync(CancellationToken cancellationToken)
+    {
+        return SaveCoreAsync(cancellationToken);
+    }
+}
+```
+
+For every `[Command]` method, the generator:
+
+- Generates the command property.
+- Generates creation of the appropriate synchronous, `Task`-based, or `ValueTask`-based command instance.
+- Resolves and binds a `CanExecute` callback when one is available.
+- Generates overrides for command creation, lookup, enumeration, and cleanup.
+- Preserves commands declared by base ViewModels through generated `base` calls.
+
+The annotated class must be `partial` and derive from a compatible base class that supplies the command infrastructure, such as `CommandViewModelBase`, `ControlViewModelBase`, or `WindowViewModelBase` from `NuExt.Minimal.Mvvm.Wpf`.
+
+### Command methods
+
+A command method may be synchronous or asynchronous and may have one command parameter. Asynchronous methods may additionally accept a `CancellationToken` when supported by the corresponding command type.
+
+The generated property name is derived from the method name. A trailing `Async` suffix is removed before `Command` is appended:
+
+```csharp
+[Command]
+private void Refresh()
+{
+}
+
+[Command]
+private Task SaveAsync(CancellationToken cancellationToken)
+{
+    return SaveCoreAsync(cancellationToken);
+}
+```
+
+This generates `RefreshCommand` and `SaveCommand`.
+
+Use `PropertyName` when a different command-property name is required:
+
+```csharp
+[Command(PropertyName = "CommitCommand")]
+private Task SaveAsync(CancellationToken cancellationToken)
+{
+    return SaveCoreAsync(cancellationToken);
+}
+```
+
+### `CanExecute` resolution
+
+When `CanExecute` is not specified, the generator looks for an accessible method named `Can{CommandMethodName}`. For an asynchronous command method, the trailing `Async` suffix is removed first.
+
+```csharp
+private bool CanSave()
+{
+    return HasChanges;
+}
+
+[Command]
+private Task SaveAsync(CancellationToken cancellationToken)
+{
+    return SaveCoreAsync(cancellationToken);
+}
+```
+
+Specify an explicit callback when the conventional name is not appropriate:
+
+```csharp
+private bool CanModify()
+{
+    return IsUsable;
+}
+
+[Command(CanExecute = nameof(CanModify))]
+private void ExpandOrCollapse(bool expand)
+{
+}
+```
+
+Explicit callback lookup includes accessible methods declared by the current class and its base classes. The callback name is emitted as a method group, allowing the C# compiler to perform the final conversion check against the selected command constructor.
+
+### Generated command lifecycle
+
+Complete generation implements the command infrastructure required by the base class:
+
+- `CreateCommands()` creates commands declared by the current class after calling the base implementation.
+- `GetCurrentCommand(...)` maps a command method to its generated command property and delegates unknown methods to the base implementation.
+- `GetAllCommands(...)` includes base commands and appends commands declared by the current class.
+- `NullifyCommands()` clears generated command properties and then invokes the base implementation.
+
+This infrastructure allows compatible ViewModel bases to cancel executing asynchronous commands, wait for command completion, raise `CanExecuteChanged`, and release command instances without runtime reflection.
+
+### Command-property-only generation
+
+Apply `[Notify]` to a method when the command property should be generated but command construction and lifecycle integration must remain explicit:
+
+```csharp
+using Minimal.Mvvm;
+
+public partial class EditorViewModel : ViewModelBase
+{
+    public EditorViewModel()
+    {
+        SaveCommand = new AsyncCommand(SaveAsync, CanSave);
+    }
+
+    [Notify(Setter = AccessModifier.Private)]
+    private Task SaveAsync(CancellationToken cancellationToken)
+    {
+        return SaveCoreAsync(cancellationToken);
+    }
+
+    private bool CanSave()
+    {
+        return HasChanges;
+    }
+}
+```
+
+This mode generates the command property only. The application remains responsible for constructing the command and integrating it into any command lifecycle.
 
 ## Validation semantics (concise)
 
@@ -204,20 +357,43 @@ See the [WpfAppSample](https://github.com/nu-ext/NuExt.Minimal.Mvvm.SourceGenera
 
 ## UseCommandManagerAttribute
 
-When applied to a command field or method, enables automatic `CanExecute` reevaluation for the generated command property by subscribing to the WPF `CommandManager.RequerySuggested` event. This attribute is used together with `[Notify]` for commands that should react to global UI state changes.
+When applied together with `[Command]` or `[Notify]`, enables automatic `CanExecute` reevaluation for the generated command property by subscribing to the WPF `CommandManager.RequerySuggested` event.
+
+### Complete command generation
+
+```csharp
+using Minimal.Mvvm;
+using Minimal.Mvvm.Wpf;
+
+[GenerateCommands]
+public partial class EditorViewModel : CommandViewModelBase
+{
+    private bool CanSave()
+    {
+        return HasChanges;
+    }
+
+    [Command(Setter = AccessModifier.Private), UseCommandManager]
+    private void Save()
+    {
+    }
+}
+```
+
+### Command-property-only generation
 
 ```csharp
 using Minimal.Mvvm;
 
-public partial class MyViewModel : ViewModelBase
+public partial class EditorViewModel : ViewModelBase
 {
-    [Notify, UseCommandManager]
-    private IRelayCommand? _saveCommand;
-
-    public MyViewModel()
+    public EditorViewModel()
     {
         SaveCommand = new RelayCommand(Save, CanSave);
     }
+
+    [Notify, UseCommandManager]
+    private IRelayCommand? _saveCommand;
 
     private void Save()
     {

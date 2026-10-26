@@ -1,8 +1,9 @@
-﻿using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
-using System.CodeDom.Compiler;
+﻿using System.CodeDom.Compiler;
 using System.Collections.Immutable;
 using System.Diagnostics;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace Minimal.Mvvm.SourceGenerator;
 
@@ -36,7 +37,7 @@ internal partial struct NotifyPropertyGenerator
     private readonly ref struct NotifyPropertyContext(NotifyAttributeData attributeData, CallbackData callbackData, 
         IEnumerable<CustomAttributeData> customAttributes, IEnumerable<AlsoNotifyAttributeData> alsoNotifyAttributes, 
         UseCommandManagerAttributeData useCommandManagerAttributeData, bool isCommand,
-        string[]? comment, string fullyQualifiedTypeName, bool isPartial,
+        string[]? comment, string fullyQualifiedTypeName, bool isPartial, bool isInitOnly,
         string propertyName, string backingFieldName, bool generateBackingFieldName, bool initializeStringBackingField)
     {
         internal readonly NotifyAttributeData NotifyAttributeData = attributeData;
@@ -51,6 +52,7 @@ internal partial struct NotifyPropertyGenerator
         internal readonly bool HasComment = comment is { Length: > 0 };
         internal readonly string FullyQualifiedTypeName = fullyQualifiedTypeName;
         internal readonly bool IsPartial = isPartial;
+        internal readonly bool IsInitOnly = isInitOnly;
 
         internal readonly string PropertyName = propertyName;
         internal readonly string BackingFieldName = backingFieldName;
@@ -107,8 +109,6 @@ internal partial struct NotifyPropertyGenerator
 
     #endregion
 
-    #region Methods
-
     internal static bool IsValidContainingType(Compilation compilation, INamedTypeSymbol typeSymbol)
     {
         INamedTypeSymbol?[] baseTypeSymbols = [
@@ -133,6 +133,42 @@ internal partial struct NotifyPropertyGenerator
         return GetCommandAttribute(methodSymbol.GetAttributes()) is not null;
     }
 
+    internal static string? GetGeneratedPropertyName(ISymbol member)
+    {
+        var attributes = member.GetAttributes();
+
+        switch (member)
+        {
+            case IFieldSymbol fieldSymbol:
+            {
+                var notifyAttribute = GetNotifyAttribute(attributes);
+                if (notifyAttribute is null)
+                {
+                    return null;
+                }
+
+                var notifyAttributeData = GetNotifyAttributeData(notifyAttribute);
+                return !string.IsNullOrWhiteSpace(notifyAttributeData.PropertyName)
+                    ? notifyAttributeData.PropertyName
+                    : GetPropertyNameFromFieldName(fieldSymbol.Name);
+            }
+
+            case IPropertySymbol propertySymbol:
+                return propertySymbol.Name;
+
+            case IMethodSymbol methodSymbol:
+            {
+                var propertyName = GetCommandPropertyName(attributes);
+                return !string.IsNullOrWhiteSpace(propertyName)
+                    ? propertyName
+                    : GetPropertyNameFromMethodName(methodSymbol.Name);
+            }
+
+            default:
+                return null;
+        }
+    }
+
     public static void Generate(scoped Generator.GeneratorContext genCtx, scoped NotifyPropertyGeneratorContext ctx, ref bool isFirst)
     {
         foreach (var member in ctx.Members)
@@ -150,6 +186,11 @@ internal partial struct NotifyPropertyGenerator
                     break;
             }
         }
+    }
+
+    private static string EscapeIdentifier(string identifier)
+    {
+        return SyntaxFacts.GetKeywordKind(identifier) != SyntaxKind.None ? "@" + identifier : identifier;
     }
 
     private static void GenerateProperty(scoped Generator.GeneratorContext genCtx, scoped NotifyPropertyGeneratorContext ctx, 
@@ -185,7 +226,7 @@ internal partial struct NotifyPropertyGenerator
         string? backingCallbackFieldName = null;
         if (propCtx.CallbackData.CallbackName != null)
         {
-            backingCallbackFieldName = $"{propCtx.BackingFieldName}ChangedCallback";
+            backingCallbackFieldName = ctx.GetOrAddBackingFieldName($"{propCtx.BackingFieldName}ChangedCallback");
             writer.Write("private global::System.Action");
             if (propCtx.CallbackData.HasParameter)
             {
@@ -243,7 +284,7 @@ internal partial struct NotifyPropertyGenerator
         {
             writer.Write("partial ");
         }
-        writer.WriteLine($"{propCtx.FullyQualifiedTypeName} {propCtx.PropertyName}");
+        writer.WriteLine($"{propCtx.FullyQualifiedTypeName} {EscapeIdentifier(propCtx.PropertyName)}");
         writer.WriteLine('{'); //begin property
         writer.Indent++;
 
@@ -257,7 +298,7 @@ internal partial struct NotifyPropertyGenerator
         #region Property Setter
 
         writer.WriteAccessibility(propCtx.NotifyAttributeData.SetterAccessibility);
-        writer.Write("set");
+        writer.Write(propCtx.IsInitOnly ? "init" : "set");
         if (hasSetCondition)
         {
             writer.WriteLine();
@@ -322,7 +363,7 @@ internal partial struct NotifyPropertyGenerator
             if (backingCallbackFieldName != null)
             {
                 // [, changedCallback]
-                writer.Write($", {backingCallbackFieldName} ??= {propCtx.CallbackData.CallbackName}");
+                writer.Write($", {backingCallbackFieldName} ??= {EscapeIdentifier(propCtx.CallbackData.CallbackName!)}");
             }
 
             if (genCtx.UseEventArgsCache)
@@ -394,33 +435,31 @@ internal partial struct NotifyPropertyGenerator
         }
     }
 
-    private static CallbackData GetCallbackData(INamedTypeSymbol containingType, ITypeSymbol? parameterType, NotifyAttributeData notifyAttributeData)
+    private static CallbackData GetCallbackData(Compilation compilation, INamedTypeSymbol containingType, ITypeSymbol? parameterType, NotifyAttributeData notifyAttributeData)
     {
         if (notifyAttributeData.CallbackName == null) return default;
 
-        var members = containingType.GetMembers(notifyAttributeData.CallbackName);
-        if (members.Length == 0)
+        var methods = new List<(IMethodSymbol method, bool hasParameter)>();
+        for (var type = containingType; type is not null; type = type.BaseType)
         {
-            return new CallbackData(notifyAttributeData.CallbackName, false);
-        }
-
-        var methods = new List<(IMethodSymbol method, bool hasParameter)>(members.Length);
-
-        bool hasParameter;
-        foreach (var member in members)
-        {
-            if (member is not IMethodSymbol method || !IsCallback(method, parameterType, out hasParameter))
+            foreach (var member in type.GetMembers(notifyAttributeData.CallbackName))
             {
-                continue;
+                if (member is not IMethodSymbol method ||
+                    !compilation.IsSymbolAccessibleWithin(method, containingType) ||
+                    !IsCallback(method, parameterType, out bool callbackHasParameter))
+                {
+                    continue;
+                }
+
+                methods.Add((method, callbackHasParameter));
             }
-            methods.Add((method, hasParameter));
         }
 
-        hasParameter = methods.Count switch
+        bool hasParameter = methods.Count switch
         {
             1 => methods[0].hasParameter,
-            > 1 when notifyAttributeData.PreferCallbackWithParameter == true => methods.Any(m => m.hasParameter),
-            > 1 => methods.All(m => m.hasParameter),
+            > 1 when notifyAttributeData.PreferCallbackWithParameter == true => methods.Any(static m => m.hasParameter),
+            > 1 => methods.All(static method => method.hasParameter),
             _ => false
         };
         return new CallbackData(notifyAttributeData.CallbackName, hasParameter);
@@ -429,9 +468,17 @@ internal partial struct NotifyPropertyGenerator
     private static bool IsCallback(IMethodSymbol methodSymbol, ITypeSymbol? parameterType, out bool hasParameter)
     {
         hasParameter = false;
-        if (!methodSymbol.ReturnsVoid) return false;
+        if (!methodSymbol.ReturnsVoid)
+        {
+            return false;
+        }
+
         var parameters = methodSymbol.Parameters;
-        if (parameters.Length > 1) return false;
+        if (parameters.Length > 1 || parameters.Any(static parameter => parameter.RefKind != RefKind.None))
+        {
+            return false;
+        }
+
         hasParameter = parameters.Length == 1;
         return parameters.Length == 0 || parameterType?.IsAssignableFromType(parameters[0].Type) == true;
     }
@@ -704,6 +751,4 @@ internal partial struct NotifyPropertyGenerator
     {
         return fullyQualifiedMetadataName.StartsWith("global::") ? fullyQualifiedMetadataName.Substring("global::".Length) : fullyQualifiedMetadataName;
     }
-
-    #endregion
 }

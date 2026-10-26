@@ -8,7 +8,9 @@ partial struct NotifyPropertyGenerator
 
     internal static bool IsValidCommandMethodSignature(Compilation compilation, IMethodSymbol methodSymbol)
     {
-        if (methodSymbol.Arity != 0)
+        if (methodSymbol.Arity != 0 ||
+            methodSymbol.ExplicitInterfaceImplementations.Length != 0 ||
+            methodSymbol is { IsPartialDefinition: true, PartialImplementationPart: null })
         {
             return false;
         }
@@ -72,18 +74,18 @@ partial struct NotifyPropertyGenerator
         var useCommandManagerAttributeData = GetUseCommandManagerAttributeData(useCommandManagerAttribute);
 
         var propertyName = !string.IsNullOrWhiteSpace(notifyAttributeData.PropertyName) ? notifyAttributeData.PropertyName! : GetPropertyNameFromMethodName(methodSymbol.Name);
-        var backingFieldName = ctx.GetOrAddBackingFieldName("_" + char.ToLower(propertyName[0]) + propertyName.Substring(1));
+        var backingFieldName = ctx.GetOrAddBackingFieldName("_" + char.ToLowerInvariant(propertyName[0]) + propertyName.Substring(1));
 
         var propertyType = GetCommandTypeName(genCtx.Compilation, methodSymbol);
 
-        var callbackData = GetCallbackData(methodSymbol.ContainingType, propertyType, notifyAttributeData);
+        var callbackData = GetCallbackData(genCtx.Compilation, methodSymbol.ContainingType, propertyType, notifyAttributeData);
 
         string nullable = genCtx.Compilation.Options.NullableContextOptions.HasFlag(NullableContextOptions.Annotations) ? "?" : "";
         var fullyQualifiedTypeName = $"{propertyType?.ToDisplayString(SymbolDisplayFormats.FullyQualifiedTypeName)}{nullable}";
 
         var propCtx = new NotifyPropertyContext(notifyAttributeData, callbackData, customAttributeData, alsoNotifyAttributeData,
             useCommandManagerAttributeData, isCommand: true, 
-            methodSymbol.GetComment(), fullyQualifiedTypeName, isPartial: false,
+            methodSymbol.GetComment(), fullyQualifiedTypeName, isPartial: false, isInitOnly: false,
             propertyName, backingFieldName, generateBackingFieldName: true, initializeStringBackingField: false);
 
         GenerateProperty(genCtx, ctx, propCtx, ref isFirst);
@@ -119,7 +121,7 @@ partial struct NotifyPropertyGenerator
         {
             propertyName = propertyName.Substring(0, propertyName.Length - "Async".Length);
         }
-        propertyName = char.ToUpper(propertyName[0]) + propertyName.Substring(1) + "Command";
+        propertyName = char.ToUpperInvariant(propertyName[0]) + propertyName.Substring(1) + "Command";
         return propertyName;
     }
 

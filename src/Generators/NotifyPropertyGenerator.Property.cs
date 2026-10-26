@@ -15,7 +15,11 @@ partial struct NotifyPropertyGenerator
             return false;
         }
 
-        if (propertySymbol.IsStatic || propertySymbol.GetMethod is null || propertySymbol.SetMethod is null)
+        if (propertySymbol.IsStatic ||
+            propertySymbol.IsIndexer ||
+            propertySymbol.GetMethod is null ||
+            propertySymbol.SetMethod is null ||
+            (propertySymbol.PartialDefinitionPart is not null || propertySymbol.PartialImplementationPart is not null))
         {
             return false;
         }
@@ -40,10 +44,10 @@ partial struct NotifyPropertyGenerator
         var useCommandManagerAttributeData = GetUseCommandManagerAttributeData(useCommandManagerAttribute);
 
         var propertyName = propertySymbol.Name;
-        var backingFieldName = ctx.GetOrAddBackingFieldName("_" + char.ToLower(propertyName[0]) + propertyName.Substring(1));
+        var backingFieldName = ctx.GetOrAddBackingFieldName("_" + char.ToLowerInvariant(propertyName[0]) + propertyName.Substring(1));
 
         var propertyType = propertySymbol.Type;
-        var callbackData = GetCallbackData(propertySymbol.ContainingType, propertyType, notifyAttributeData);
+        var callbackData = GetCallbackData(genCtx.Compilation, propertySymbol.ContainingType, propertyType, notifyAttributeData);
 
         bool isCommand = GetIsCommand(genCtx.Compilation, propertyType);
         var fullyQualifiedTypeName = propertyType.ToDisplayString(SymbolDisplayFormats.FullyQualifiedTypeName);
@@ -53,7 +57,7 @@ partial struct NotifyPropertyGenerator
 
         var propCtx = new NotifyPropertyContext(notifyAttributeData, callbackData, customAttributeData, alsoNotifyAttributeData,
             useCommandManagerAttributeData, isCommand, 
-            comment: null, fullyQualifiedTypeName, isPartial: true,
+            comment: null, fullyQualifiedTypeName, isPartial: true, isInitOnly: propertySymbol.SetMethod!.IsInitOnly,
             propertyName, backingFieldName, generateBackingFieldName: true, initializeStringBackingField);
 
         GenerateProperty(genCtx, ctx, propCtx, ref isFirst);

@@ -32,7 +32,7 @@ partial class Generator
             /// <summary>
             /// A custom attribute that allows specifying a fully qualified attribute name to be applied to a generated property.
             /// </summary>
-            [AttributeUsage(AttributeTargets.Field | AttributeTargets.Method, Inherited = false, AllowMultiple = true)]
+            [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property | AttributeTargets.Method, Inherited = false, AllowMultiple = true)]
             internal sealed class CustomAttributeAttribute : Attribute
             {
                 /// <summary>
@@ -183,7 +183,7 @@ partial class Generator
             /// <summary>
             /// Attribute to specify additional properties to notify when the annotated property changes.
             /// </summary>
-            [AttributeUsage(AttributeTargets.Field | AttributeTargets.Method, Inherited = false, AllowMultiple = true)]
+           [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property | AttributeTargets.Method, Inherited = false, AllowMultiple = true)]
             internal sealed class AlsoNotifyAttribute : Attribute
             {
                 /// <summary>
@@ -284,7 +284,7 @@ partial class Generator
             /// Enables automatic IRelayCommand.CanExecute re-evaluation for generated commands
             /// by subscribing to the WPF CommandManager.RequerySuggested event.
             /// </summary>
-            [AttributeUsage(AttributeTargets.Field | AttributeTargets.Method, Inherited = false, AllowMultiple = false)]
+            [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property | AttributeTargets.Method, Inherited = false, AllowMultiple = false)]
             internal sealed class UseCommandManagerAttribute : Attribute
             {
                 /// <summary>

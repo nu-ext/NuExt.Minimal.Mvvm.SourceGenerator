@@ -39,7 +39,7 @@ internal static class Diagnostics
     internal static readonly DiagnosticDescriptor InvalidNotifyFieldSignature = new(
         id: "NUEXT005",
         title: "Invalid notify field declaration",
-        messageFormat: "Field '{0}' annotated with [Notify] must be an instance, non-readonly field",
+        messageFormat: "Field '{0}' annotated with [Notify] must be an instance, non-readonly field and must produce a non-empty property name",
         category: "Usage",
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true);
@@ -47,7 +47,7 @@ internal static class Diagnostics
     internal static readonly DiagnosticDescriptor InvalidNotifyPropertySignature = new(
         id: "NUEXT006",
         title: "Invalid notify property declaration",
-        messageFormat: "Property '{0}' annotated with [Notify] must be an instance partial property with both getter and setter and requires C# 13 or later",
+        messageFormat: "Property '{0}' annotated with [Notify] must be a non-indexed instance partial property with both getter and setter and requires C# 13 or later",
         category: "Usage",
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true);
@@ -124,18 +124,18 @@ internal static class Diagnostics
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true);
 
-    internal static readonly DiagnosticDescriptor DuplicateCommandPropertyName = new(
+    internal static readonly DiagnosticDescriptor DuplicateGeneratedPropertyName = new(
         id: "NUEXT016",
-        title: "Duplicate command property name",
-        messageFormat: "Type '{0}' contains multiple command methods generating property '{1}'",
+        title: "Duplicate generated property name",
+        messageFormat: "Type '{0}' contains multiple members generating property '{1}'",
         category: "Usage",
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true);
 
-    internal static readonly DiagnosticDescriptor CommandPropertyAlreadyDeclared = new(
+    internal static readonly DiagnosticDescriptor GeneratedPropertyAlreadyDeclared = new(
         id: "NUEXT017",
-        title: "Command property is already declared",
-        messageFormat: "Type '{0}' already contains member '{1}' generated for command method '{2}'",
+        title: "Generated property is already declared",
+        messageFormat: "Type '{0}' already contains member '{1}' generated for member '{2}'",
         category: "Usage",
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true);

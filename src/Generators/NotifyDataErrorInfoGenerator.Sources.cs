@@ -565,8 +565,8 @@ partial struct NotifyDataErrorInfoGenerator
             lock (_validationErrorsSyncRoot)
             {
                 return _validationErrors is { } validationErrors &&
-                       validationErrors.TryGetValue(propertyName, out var errors) &&
-                       errors.Count > 0;
+                    validationErrors.TryGetValue(propertyName, out var errors) &&
+                    errors.Count > 0;
             }
         }
 
@@ -672,7 +672,7 @@ partial struct NotifyDataErrorInfoGenerator
 
         #region INotifyDataErrorInfo implementation
 
-        private event global::System.EventHandler<System.ComponentModel.DataErrorsChangedEventArgs>{{nullable}} errorsChanged;
+        private event global::System.EventHandler<global::System.ComponentModel.DataErrorsChangedEventArgs>{{nullable}} errorsChanged;
 
         /// <inheritdoc />
         public event global::System.EventHandler<global::System.ComponentModel.DataErrorsChangedEventArgs>{{nullable}} ErrorsChanged
