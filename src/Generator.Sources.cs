@@ -236,6 +236,11 @@ partial class Generator
                 public string PropertyName { get; set; }
 
                 /// <summary>
+                /// Gets or sets the name of the method that determines whether the command can execute.
+                /// </summary>
+                public string CanExecute { get; set; }
+
+                /// <summary>
                 /// Gets or sets the access modifier for the getter.
                 /// </summary>
                 public AccessModifier Getter { get; set; }
@@ -289,6 +294,20 @@ partial class Generator
                 {
 
                 }
+            }
+        }
+        """),
+        (hintName: "Minimal.Mvvm.GenerateCommandsAttribute.g.cs", source:
+        """
+        using System;
+        namespace Minimal.Mvvm
+        {
+            /// <summary>
+            /// Enables automatic command infrastructure generation for the target class.
+            /// </summary>
+            [AttributeUsage(AttributeTargets.Class, Inherited = false, AllowMultiple = false)]
+            internal sealed class GenerateCommandsAttribute : Attribute
+            {
             }
         }
         """),

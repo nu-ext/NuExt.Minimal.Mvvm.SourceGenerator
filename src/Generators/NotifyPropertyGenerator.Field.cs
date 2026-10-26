@@ -1,6 +1,4 @@
 ﻿using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace Minimal.Mvvm.SourceGenerator;
 
@@ -8,36 +6,10 @@ partial struct NotifyPropertyGenerator
 {
     #region Methods
 
-    private static bool IsValidVariableDeclarator(VariableDeclaratorSyntax variableDeclaratorSyntax)
+    internal static bool IsValidFieldSignature(Compilation compilation, IFieldSymbol fieldSymbol)
     {
-        if (variableDeclaratorSyntax is not
-        {
-            Parent: VariableDeclarationSyntax
-            {
-                Parent: FieldDeclarationSyntax
-                {
-                    AttributeLists.Count: > 0,
-                    Parent: ClassDeclarationSyntax
-                } fieldDeclarationSyntax
-            }
-        })
-        {
-            return false;
-        }
-
-        if (fieldDeclarationSyntax.Modifiers.Any(SyntaxKind.StaticKeyword) 
-            || fieldDeclarationSyntax.Modifiers.Any(SyntaxKind.ReadOnlyKeyword)
-            )
-        {
-            return false;
-        }
-
-        return true;
-    }
-
-    internal static bool IsValidField(Compilation compilation, IFieldSymbol fieldSymbol)
-    {
-        return !fieldSymbol.IsReadOnly && IsValidContainingType(compilation, fieldSymbol.ContainingType);
+        _ = compilation;
+        return fieldSymbol is { IsStatic: false, IsReadOnly: false };
     }
 
     private static void GenerateForField(scoped Generator.GeneratorContext genCtx, scoped NotifyPropertyGeneratorContext ctx, IFieldSymbol fieldSymbol, ref bool isFirst)

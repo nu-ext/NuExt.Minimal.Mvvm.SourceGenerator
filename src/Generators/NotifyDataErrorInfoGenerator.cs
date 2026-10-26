@@ -26,15 +26,10 @@ internal partial struct NotifyDataErrorInfoGenerator
         return attributeTarget is ClassDeclarationSyntax;
     }
 
-    public static bool IsValidType(Compilation compilation, ITypeSymbol typeSymbol)
+    public static bool IsValidContainingType(Compilation compilation, INamedTypeSymbol typeSymbol)
     {
         var baseTypeSymbol = compilation.GetTypeByMetadataName("System.ComponentModel.INotifyDataErrorInfo");
         if (baseTypeSymbol == null || !typeSymbol.ImplementsInterface(baseTypeSymbol))
-        {
-            return false;
-        }
-
-        if (!NotifyPropertyGenerator.IsValidContainingType(compilation, typeSymbol))
         {
             return false;
         }

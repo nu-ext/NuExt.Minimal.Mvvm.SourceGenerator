@@ -8,46 +8,21 @@ partial struct NotifyPropertyGenerator
 {
     #region Methods
 
-    private static bool IsValidPropertyDeclaration(PropertyDeclarationSyntax propertyDeclarationSyntax)
+    internal static bool IsValidPropertySignature(Compilation compilation, IPropertySymbol propertySymbol)
     {
-        if (propertyDeclarationSyntax is not
-            {
-                Parent: ClassDeclarationSyntax,
-                AttributeLists.Count: > 0,
-                AccessorList.Accessors.Count: 2
-            })
+        if (compilation is not CSharpCompilation { LanguageVersion: >= LanguageVersion.CSharp13 })
         {
             return false;
         }
 
-        if (propertyDeclarationSyntax.Modifiers.Any(SyntaxKind.StaticKeyword))
+        if (propertySymbol.IsStatic || propertySymbol.GetMethod is null || propertySymbol.SetMethod is null)
         {
             return false;
         }
 
-        if (!propertyDeclarationSyntax.Modifiers.Any(SyntaxKind.PartialKeyword))
-        {
-            return false;
-        }
-
-        return true;
-    }
-
-    internal static bool IsValidProperty(Compilation compilation, IPropertySymbol propertySymbol)
-    {
-        if (compilation is not CSharpCompilation csc)
-        {
-            return false;
-        }
-        if (csc.LanguageVersion < LanguageVersion.CSharp13)
-        {
-            return false;
-        }
-        if (!IsValidContainingType(compilation, propertySymbol.ContainingType))
-        {
-            return false;
-        }
-        return propertySymbol.GetMethod is not null && propertySymbol.SetMethod is not null;
+        return propertySymbol.DeclaringSyntaxReferences.Any(static syntaxReference =>
+            syntaxReference.GetSyntax() is PropertyDeclarationSyntax propertyDeclaration &&
+            propertyDeclaration.Modifiers.Any(SyntaxKind.PartialKeyword));
     }
 
     private static void GenerateForProperty(scoped Generator.GeneratorContext genCtx, NotifyPropertyGeneratorContext ctx, IPropertySymbol propertySymbol, ref bool isFirst)

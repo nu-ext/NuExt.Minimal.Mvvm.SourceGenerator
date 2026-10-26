@@ -92,9 +92,9 @@ internal partial struct NotifyPropertyGenerator
         //Trace.WriteLine($"pipeline syntaxNode={attributeTarget}");
         return attributeTarget switch
         {
-            VariableDeclaratorSyntax v => IsValidVariableDeclarator(v),
-            PropertyDeclarationSyntax p => IsValidPropertyDeclaration(p),
-            MethodDeclarationSyntax m => IsValidMethodDeclaration(m),
+            VariableDeclaratorSyntax => true,
+            PropertyDeclarationSyntax => true,
+            MethodDeclarationSyntax { AttributeLists.Count: > 0 } => true,
             _ => false,
         };
     }
@@ -102,14 +102,14 @@ internal partial struct NotifyPropertyGenerator
     internal static bool IsValidCommandSyntaxNode(SyntaxNode attributeTarget, CancellationToken cancellationToken)
     {
         _ = cancellationToken;
-        return attributeTarget is MethodDeclarationSyntax method && IsValidMethodDeclaration(method);
+        return attributeTarget is MethodDeclarationSyntax { AttributeLists.Count: > 0 };
     }
 
     #endregion
 
     #region Methods
 
-    internal static bool IsValidContainingType(Compilation compilation, ITypeSymbol containingType)
+    internal static bool IsValidContainingType(Compilation compilation, INamedTypeSymbol typeSymbol)
     {
         INamedTypeSymbol?[] baseTypeSymbols = [
             compilation.GetTypeByMetadataName(BindableBaseFullyQualifiedMetadataName),
@@ -117,7 +117,7 @@ internal partial struct NotifyPropertyGenerator
             ];
         foreach (var baseTypeSymbol in baseTypeSymbols)
         {
-            if (baseTypeSymbol != null && containingType.InheritsFromType(baseTypeSymbol))
+            if (baseTypeSymbol != null && typeSymbol.InheritsFromType(baseTypeSymbol))
                 return true;
         }
         return false;
@@ -436,7 +436,7 @@ internal partial struct NotifyPropertyGenerator
         return parameters.Length == 0 || parameterType?.IsAssignableFromType(parameters[0].Type) == true;
     }
 
-    private static AttributeData? GetCommandAttribute(IEnumerable<AttributeData> attributes)
+    internal static AttributeData? GetCommandAttribute(IEnumerable<AttributeData> attributes)
     {
         return attributes.SingleOrDefault(x => x.AttributeClass?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) == CommandAttributeFullyQualifiedName);
     }
@@ -456,32 +456,73 @@ internal partial struct NotifyPropertyGenerator
         return attributes.Where(x => x.AttributeClass?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) == CustomAttributeFullyQualifiedName);
     }
 
-    private static AttributeData? GetUseCommandManagerAttribute(IEnumerable<AttributeData> attributes)
+    private static AttributeData? GetUseCommandManagerAttribute(ImmutableArray<AttributeData> attributes)
     {
         return attributes.SingleOrDefault(x => x.AttributeClass?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) == UseCommandManagerAttributeFullyQualifiedName);
     }
 
-    private static NotifyAttributeData GetCommandAttributeData(AttributeData commandAttribute)
+    internal static string? GetCommandPropertyName(ImmutableArray<AttributeData> attributes)
+    {
+        var commandAttribute = GetCommandAttribute(attributes);
+        if (commandAttribute is not null)
+        {
+            return GetCommandPropertyName(commandAttribute);
+        }
+
+        var notifyAttribute = GetNotifyAttribute(attributes);
+        return notifyAttribute is null ? null : GetNotifyAttributeData(notifyAttribute).PropertyName;
+    }
+
+    internal static string? GetCommandPropertyName(AttributeData commandAttribute)
     {
         string? propertyName = null;
-        Accessibility getterAccessibility = Accessibility.NotApplicable;
-        Accessibility setterAccessibility = Accessibility.NotApplicable;
 
         if (commandAttribute.ConstructorArguments.Length > 0 && commandAttribute.ConstructorArguments[0] is { Type.SpecialType: SpecialType.System_String, Value: string value })
         {
             propertyName = value;
         }
 
+        foreach (var pair in commandAttribute.NamedArguments)
+        {
+            if (pair.Key == nameof(CommandAttribute.PropertyName))
+            {
+                propertyName = (string?)pair.Value.Value;
+                break;
+            }
+        }
+
+        return propertyName;
+    }
+
+    internal static string? GetCommandCanExecuteName(AttributeData commandAttribute)
+    {
+        foreach (var pair in commandAttribute.NamedArguments)
+        {
+            if (pair.Key == nameof(CommandAttribute.CanExecute))
+            {
+                return (string?)pair.Value.Value;
+            }
+        }
+
+        return null;
+    }
+
+    private static NotifyAttributeData GetCommandAttributeData(AttributeData commandAttribute)
+    {
+        var propertyName = GetCommandPropertyName(commandAttribute);
+        Accessibility getterAccessibility = Accessibility.NotApplicable;
+        Accessibility setterAccessibility = Accessibility.NotApplicable;
         if (commandAttribute.NamedArguments.Length > 0)
         {
             foreach (var pair in commandAttribute.NamedArguments)
             {
                 var name = pair.Key;
                 var typedConstant = pair.Value;
-                switch (pair.Key)
+                switch (name)
                 {
                     case nameof(CommandAttribute.PropertyName):
-                        propertyName = (string?)typedConstant.Value;
+                        break;
+                    case nameof(CommandAttribute.CanExecute):
                         break;
                     case nameof(CommandAttribute.Getter):
                         getterAccessibility = (Accessibility)typedConstant.Value!;
@@ -495,7 +536,6 @@ internal partial struct NotifyPropertyGenerator
                 }
             }
         }
-
         (var propertyAccessibility, getterAccessibility, setterAccessibility) = GetAccessibility(getterAccessibility, setterAccessibility);
         return new NotifyAttributeData(propertyName, null, null, propertyAccessibility, getterAccessibility, setterAccessibility);
     }

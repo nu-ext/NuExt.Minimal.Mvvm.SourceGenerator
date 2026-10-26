@@ -30,7 +30,7 @@ internal struct LocalizePropertyGenerator
         return attributeTarget is ClassDeclarationSyntax;
     }
 
-    public static bool IsValidType(ITypeSymbol typeSymbol,
+    public static bool IsValidContainingType(INamedTypeSymbol typeSymbol,
         ImmutableArray<AttributeData> attributes,
         ImmutableArray<(string name, AdditionalText text)> additionalTexts)
     {

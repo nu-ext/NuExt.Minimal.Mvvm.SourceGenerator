@@ -1,6 +1,4 @@
 ﻿using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace Minimal.Mvvm.SourceGenerator;
 
@@ -8,86 +6,14 @@ partial struct NotifyPropertyGenerator
 {
     #region Methods
 
-    private static bool IsValidMethodDeclaration(MethodDeclarationSyntax methodDeclarationSyntax)
+    internal static bool IsValidCommandMethodSignature(Compilation compilation, IMethodSymbol methodSymbol)
     {
-        if (methodDeclarationSyntax is not
-            {
-                Parent: ClassDeclarationSyntax,
-                AttributeLists.Count: > 0,
-                ParameterList.Parameters.Count: <= 2,
-            })
+        if (methodSymbol.Arity != 0)
         {
             return false;
         }
 
-        bool hasValidReturnType;
-        bool returnsVoid = false;
-        string returnType;
-        switch (methodDeclarationSyntax.ReturnType)
-        {
-            case IdentifierNameSyntax identifierNameSyntax:
-                hasValidReturnType = identifierNameSyntax.Identifier.ValueText is "Task" or "ValueTask";
-                break;
-            case PredefinedTypeSyntax predefinedTypeSyntax:
-                returnsVoid = predefinedTypeSyntax.Keyword.IsKind(SyntaxKind.VoidKeyword);
-                hasValidReturnType = returnsVoid;
-                break;
-            case QualifiedNameSyntax qualifiedNameSyntax:
-                returnType = RemoveGlobalAlias(qualifiedNameSyntax.ToString());
-                hasValidReturnType = returnType is "System.Threading.Tasks.Task" or "System.Threading.Tasks.ValueTask";
-                break;
-            default:
-                hasValidReturnType = false;
-                break;
-        }
-
-        if (!hasValidReturnType)
-        {
-            return false;
-        }
-
-        var parameters = methodDeclarationSyntax.ParameterList.Parameters;
-
-        if (returnsVoid)
-        {
-            return parameters.Count <= 1;
-        }
-
-        //is async here
-
-        //Task MethodAsync([...,] CancellationToken ct)
-        if (parameters is { Count: > 0 and <= 2 } && parameters[parameters.Count - 1] is { Type: { } typeNode })
-        {
-            switch (typeNode)
-            {
-                case QualifiedNameSyntax { Right: IdentifierNameSyntax identifierNameNode }:
-                    if (identifierNameNode.Identifier is { ValueText: "CancellationToken" })
-                    {
-                        return true;
-                    }
-                    break;
-                case IdentifierNameSyntax identifierNameSyntax:
-                    if (identifierNameSyntax.Identifier is { ValueText: "CancellationToken" })
-                    {
-                        return true;
-                    }
-                    break;
-                default:
-                    break;
-            }
-        }
-
-        return parameters.Count <= 1;
-    }
-
-    internal static bool IsValidMethod(Compilation compilation, IMethodSymbol methodSymbol)
-    {
-        if (methodSymbol.Parameters.Length > 2)
-        {
-            return false;
-        }
-
-        if (!IsValidContainingType(compilation, methodSymbol.ContainingType))
+        if (methodSymbol.Parameters.Length > 2 || methodSymbol.Parameters.Any(static parameter => parameter.RefKind != RefKind.None))
         {
             return false;
         }
@@ -117,7 +43,7 @@ partial struct NotifyPropertyGenerator
         return SymbolEqualityComparer.Default.Equals(returnType, taskType) || SymbolEqualityComparer.Default.Equals(returnType, valueTaskType);
     }
 
-    private static bool HasCancellableParameter(IMethodSymbol methodSymbol)
+    internal static bool HasCancellableParameter(IMethodSymbol methodSymbol)
     {
         if (methodSymbol.Parameters is { Length: > 0 and <= 2 } parameters && parameters[parameters.Length - 1] is { Type: { } symbolType })
         {
@@ -163,7 +89,7 @@ partial struct NotifyPropertyGenerator
         GenerateProperty(genCtx, ctx, propCtx, ref isFirst);
     }
 
-    private static INamedTypeSymbol? GetCommandTypeName(Compilation compilation, IMethodSymbol methodSymbol)
+    internal static INamedTypeSymbol? GetCommandTypeName(Compilation compilation, IMethodSymbol methodSymbol)
     {
         bool isAsync = !methodSymbol.ReturnsVoid;
         bool supportsCancellation = isAsync && HasCancellableParameter(methodSymbol);
@@ -186,10 +112,10 @@ partial struct NotifyPropertyGenerator
         return null;
     }
 
-    private static string GetPropertyNameFromMethodName(string methodName)
+    internal static string GetPropertyNameFromMethodName(string methodName)
     {
         var propertyName = methodName;
-        if (propertyName.Length > "Async".Length && propertyName.EndsWith("Async"))
+        if (propertyName.Length > "Async".Length && propertyName.EndsWith("Async", StringComparison.Ordinal))
         {
             propertyName = propertyName.Substring(0, propertyName.Length - "Async".Length);
         }
