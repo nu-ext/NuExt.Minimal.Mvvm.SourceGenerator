@@ -44,7 +44,7 @@ partial struct NotifyPropertyGenerator
         var propertyName = !string.IsNullOrWhiteSpace(notifyAttributeData.PropertyName) ? notifyAttributeData.PropertyName! : GetPropertyNameFromFieldName(backingFieldName);
 
         var propertyType = fieldSymbol.Type;
-        var callbackData = GetCallbackData(genCtx.Compilation, fieldSymbol.ContainingType, propertyType, notifyAttributeData);
+        var callbackData = GetCallbackData(genCtx.Compilation, fieldSymbol.ContainingType, propertyType, notifyAttributeData.CallbackName);
 
         bool isCommand = GetIsCommand(genCtx.Compilation, propertyType);
         var fullyQualifiedTypeName = propertyType.ToDisplayString(SymbolDisplayFormats.FullyQualifiedTypeName);

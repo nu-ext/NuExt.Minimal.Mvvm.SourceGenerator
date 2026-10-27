@@ -47,7 +47,7 @@ partial struct NotifyPropertyGenerator
         var backingFieldName = ctx.GetOrAddBackingFieldName("_" + char.ToLowerInvariant(propertyName[0]) + propertyName.Substring(1));
 
         var propertyType = propertySymbol.Type;
-        var callbackData = GetCallbackData(genCtx.Compilation, propertySymbol.ContainingType, propertyType, notifyAttributeData);
+        var callbackData = GetCallbackData(genCtx.Compilation, propertySymbol.ContainingType, propertyType, notifyAttributeData.CallbackName);
 
         bool isCommand = GetIsCommand(genCtx.Compilation, propertyType);
         var fullyQualifiedTypeName = propertyType.ToDisplayString(SymbolDisplayFormats.FullyQualifiedTypeName);

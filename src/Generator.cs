@@ -361,11 +361,8 @@ public partial class Generator : IIncrementalGenerator
                             hasInvalidCommandInfo = true;
                         }
 
-                        context.ReportDiagnostic(Diagnostic.Create(
-                            Diagnostics.DuplicateGeneratedPropertyName,
-                            item.member.Locations.FirstOrDefault(),
-                            containingType.Name,
-                            item.propertyName));
+                        context.ReportDiagnostic(Diagnostic.Create(Diagnostics.DuplicateGeneratedPropertyName,
+                            item.member.Locations.FirstOrDefault(), containingType.Name, item.propertyName));
                     }
                 }
 

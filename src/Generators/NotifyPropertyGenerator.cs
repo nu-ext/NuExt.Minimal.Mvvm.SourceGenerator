@@ -76,13 +76,13 @@ internal partial struct NotifyPropertyGenerator
 
     private static readonly char[] s_trimChars = ['_'];
 
-    private readonly record struct CallbackData(string? CallbackName, bool HasParameter);
+    private readonly record struct CallbackData(string CallbackName, bool HasParameter);
 
     private readonly record struct CustomAttributeData(string Attribute);
 
     private readonly record struct AlsoNotifyAttributeData(string PropertyName);
 
-    private readonly record struct NotifyAttributeData(string? PropertyName, string? CallbackName, bool? PreferCallbackWithParameter, Accessibility PropertyAccessibility, Accessibility GetterAccessibility, Accessibility SetterAccessibility);
+    private readonly record struct NotifyAttributeData(string? PropertyName, string? CallbackName, Accessibility PropertyAccessibility, Accessibility GetterAccessibility, Accessibility SetterAccessibility);
 
     private readonly record struct UseCommandManagerAttributeData(bool IsValid);
 
@@ -363,7 +363,7 @@ internal partial struct NotifyPropertyGenerator
             if (backingCallbackFieldName != null)
             {
                 // [, changedCallback]
-                writer.Write($", {backingCallbackFieldName} ??= {EscapeIdentifier(propCtx.CallbackData.CallbackName!)}");
+                writer.Write($", {backingCallbackFieldName} ??= {EscapeIdentifier(propCtx.CallbackData.CallbackName)}");
             }
 
             if (genCtx.UseEventArgsCache)
@@ -435,14 +435,19 @@ internal partial struct NotifyPropertyGenerator
         }
     }
 
-    private static CallbackData GetCallbackData(Compilation compilation, INamedTypeSymbol containingType, ITypeSymbol? parameterType, NotifyAttributeData notifyAttributeData)
+    private static CallbackData GetCallbackData(Compilation compilation, INamedTypeSymbol containingType, ITypeSymbol? parameterType, string? callbackName)
     {
-        if (notifyAttributeData.CallbackName == null) return default;
+        if (string.IsNullOrWhiteSpace(callbackName))
+        {
+            return default;
+        }
 
-        var methods = new List<(IMethodSymbol method, bool hasParameter)>();
         for (var type = containingType; type is not null; type = type.BaseType)
         {
-            foreach (var member in type.GetMembers(notifyAttributeData.CallbackName))
+            bool found = false;
+            bool hasParameter = false;
+
+            foreach (var member in type.GetMembers(callbackName!))
             {
                 if (member is not IMethodSymbol method ||
                     !compilation.IsSymbolAccessibleWithin(method, containingType) ||
@@ -451,18 +456,17 @@ internal partial struct NotifyPropertyGenerator
                     continue;
                 }
 
-                methods.Add((method, callbackHasParameter));
+                found = true;
+                hasParameter |= callbackHasParameter;
+            }
+
+            if (found)
+            {
+                return new CallbackData(callbackName!, hasParameter);
             }
         }
 
-        bool hasParameter = methods.Count switch
-        {
-            1 => methods[0].hasParameter,
-            > 1 when notifyAttributeData.PreferCallbackWithParameter == true => methods.Any(static m => m.hasParameter),
-            > 1 => methods.All(static method => method.hasParameter),
-            _ => false
-        };
-        return new CallbackData(notifyAttributeData.CallbackName, hasParameter);
+        return new CallbackData(callbackName!, HasParameter: false);
     }
 
     private static bool IsCallback(IMethodSymbol methodSymbol, ITypeSymbol? parameterType, out bool hasParameter)
@@ -557,6 +561,7 @@ internal partial struct NotifyPropertyGenerator
     private static NotifyAttributeData GetCommandAttributeData(AttributeData commandAttribute)
     {
         var propertyName = GetCommandPropertyName(commandAttribute);
+        string? callbackName = null;
         Accessibility getterAccessibility = Accessibility.NotApplicable;
         Accessibility setterAccessibility = Accessibility.NotApplicable;
         if (commandAttribute.NamedArguments.Length > 0)
@@ -568,6 +573,9 @@ internal partial struct NotifyPropertyGenerator
                 switch (name)
                 {
                     case nameof(CommandAttribute.PropertyName):
+                        break;
+                    case nameof(CommandAttribute.CallbackName):
+                        callbackName = (string?)typedConstant.Value;
                         break;
                     case nameof(CommandAttribute.CanExecute):
                         break;
@@ -584,13 +592,12 @@ internal partial struct NotifyPropertyGenerator
             }
         }
         (var propertyAccessibility, getterAccessibility, setterAccessibility) = GetAccessibility(getterAccessibility, setterAccessibility);
-        return new NotifyAttributeData(propertyName, null, null, propertyAccessibility, getterAccessibility, setterAccessibility);
+        return new NotifyAttributeData(propertyName, callbackName, propertyAccessibility, getterAccessibility, setterAccessibility);
     }
 
     private static NotifyAttributeData GetNotifyAttributeData(AttributeData notifyAttribute)
     {
         string? propertyName = null, callbackName = null;
-        bool? preferCallbackWithParameter = null;
         Accessibility getterAccessibility = Accessibility.NotApplicable, setterAccessibility = Accessibility.NotApplicable;
         if (notifyAttribute.ConstructorArguments.Length > 0)
         {
@@ -619,9 +626,6 @@ internal partial struct NotifyPropertyGenerator
                     case nameof(NotifyAttribute.CallbackName):
                         callbackName = (string?)typedConstant.Value;
                         break;
-                    case nameof(NotifyAttribute.PreferCallbackWithParameter):
-                        preferCallbackWithParameter = (bool?)typedConstant.Value;
-                        break;
                     case nameof(NotifyAttribute.Getter):
                         getterAccessibility = (Accessibility)typedConstant.Value!;
                         break;
@@ -637,7 +641,7 @@ internal partial struct NotifyPropertyGenerator
 
         (var propertyAccessibility, getterAccessibility, setterAccessibility) = GetAccessibility(getterAccessibility, setterAccessibility);
 
-        return new NotifyAttributeData(propertyName, callbackName, preferCallbackWithParameter, propertyAccessibility, getterAccessibility, setterAccessibility);
+        return new NotifyAttributeData(propertyName, callbackName, propertyAccessibility, getterAccessibility, setterAccessibility);
     }
 
     private static (Accessibility propertyAccessibility, Accessibility getterAccessibility, Accessibility setterAccessibility)

@@ -14,13 +14,7 @@ internal sealed class NotifyAttribute : Attribute
     }
 
     public string PropertyName { get; set; } = null!;
-
     public string CallbackName { get; set; } = null!;
-
-    public bool PreferCallbackWithParameter { get; set; }
-
     public AccessModifier Getter { get; set; }
-
     public AccessModifier Setter { get; set; }
-
 }

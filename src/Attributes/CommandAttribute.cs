@@ -13,6 +13,7 @@ internal sealed class CommandAttribute : Attribute
     }
 
     public string PropertyName { get; set; } = null!;
+    public string CallbackName { get; set; } = null!;
     public string CanExecute { get; set; } = null!;
     public AccessModifier Getter { get; set; }
     public AccessModifier Setter { get; set; }

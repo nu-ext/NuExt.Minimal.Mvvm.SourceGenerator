@@ -14,9 +14,9 @@ internal sealed partial class LoginViewModel(IAuthService auth) : ViewModelBase,
 
     // ---------------------------- Properties ----------------------------
 
-    [Notify] private string _userName = string.Empty;
+    [Notify] public partial string UserName { get; set; }
 
-    [Notify] private string _password = string.Empty;
+    [Notify] public partial string Password { get; set; }
 
     [Notify] public partial bool RememberMe { get; set; }
 

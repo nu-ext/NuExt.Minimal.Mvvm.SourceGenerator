@@ -78,7 +78,7 @@ partial struct NotifyPropertyGenerator
 
         var propertyType = GetCommandTypeName(genCtx.Compilation, methodSymbol);
 
-        var callbackData = GetCallbackData(genCtx.Compilation, methodSymbol.ContainingType, propertyType, notifyAttributeData);
+        var callbackData = GetCallbackData(genCtx.Compilation, methodSymbol.ContainingType, propertyType, notifyAttributeData.CallbackName);
 
         string nullable = genCtx.Compilation.Options.NullableContextOptions.HasFlag(NullableContextOptions.Annotations) ? "?" : "";
         var fullyQualifiedTypeName = $"{propertyType?.ToDisplayString(SymbolDisplayFormats.FullyQualifiedTypeName)}{nullable}";

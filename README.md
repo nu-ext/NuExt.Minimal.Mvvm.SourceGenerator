@@ -25,7 +25,7 @@
 - **Commands**
   - Generates command properties from synchronous and asynchronous methods.
   - Supports complete command generation through `[GenerateCommands]` and `[Command]`.
-  - Generates command instance creation and command initialization, lookup, enumeration, and cleanup overrides.
+  - Generates command creation, initialization, lookup, enumeration, and cleanup overrides.
   - Discovers `CanExecute` callbacks in the current type and its accessible base types.
   - Supports explicit command names, `CanExecute` callback names, command-property accessibility, and WPF `CommandManager` integration.
 - **Validation (`INotifyDataErrorInfo`)**
@@ -41,7 +41,7 @@
 - **`[Command]`**: Generates a command property and the code that creates its command instance from the annotated method, and includes the command in the generated lifecycle infrastructure.
   - **Options:** `PropertyName`, `CanExecute`, `Getter`, `Setter`.
 - **`[Notify]`**: Generates an observable property from a field or partial property. When applied to a method, it provides command-property-only generation.
-  - **Options:** `PropertyName`, `CallbackName`, `PreferCallbackWithParameter`, `Getter`, `Setter`.
+  - **Options:** `PropertyName`, `CallbackName`, `Getter`, `Setter`.
 - **`[AlsoNotify]`**: Raises notifications for additional properties when the generated property changes.
 - **`[CustomAttribute]`**: Applies an attribute to a generated member.
 - **`[UseCommandManager]`**: Enables automatic `CanExecute` reevaluation through WPF `CommandManager.RequerySuggested`. Can be applied together with `[Command]` for complete command generation or with `[Notify]` for command-property-only generation.
@@ -149,7 +149,7 @@ The annotated class must be `partial` and derive from a compatible base class th
 
 A command method may be synchronous or asynchronous and may have one command parameter. Asynchronous methods may additionally accept a `CancellationToken` when supported by the corresponding command type.
 
-The generated property name is derived from the method name. A trailing `Async` suffix is removed before `Command` is appended:
+The property name is derived from the method name. A trailing `Async` is removed before appending `Command`:
 
 ```csharp
 [Command]

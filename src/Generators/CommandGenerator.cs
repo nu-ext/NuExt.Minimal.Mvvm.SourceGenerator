@@ -22,8 +22,8 @@ internal struct CommandGenerator
 
     internal static bool IsValidContainingType(Compilation compilation, INamedTypeSymbol typeSymbol)
     {
-        var controlViewModelType = compilation.GetTypeByMetadataName(CommandViewModelBaseFullyQualifiedMetadataName);
-        return controlViewModelType is not null && typeSymbol.InheritsFromType(controlViewModelType);
+        var commandViewModelBaseType = compilation.GetTypeByMetadataName(CommandViewModelBaseFullyQualifiedMetadataName);
+        return commandViewModelBaseType is not null && typeSymbol.InheritsFromType(commandViewModelBaseType);
     }
 
     #endregion

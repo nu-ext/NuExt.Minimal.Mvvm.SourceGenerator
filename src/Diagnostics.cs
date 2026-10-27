@@ -87,7 +87,7 @@ internal static class Diagnostics
     internal static readonly DiagnosticDescriptor InvalidGenerateCommandsType = new(
         id: "NUEXT011",
         title: "Invalid generate commands type",
-        messageFormat: "Type '{0}' annotated with [GenerateCommands] must derive from ControlViewModel",
+        messageFormat: "Type '{0}' annotated with [GenerateCommands] must derive from CommandViewModelBase",
         category: "Usage",
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true);

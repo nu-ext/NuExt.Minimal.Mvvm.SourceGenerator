@@ -158,11 +158,6 @@ partial class Generator
                 public string CallbackName { get; set; }
 
                 /// <summary>
-                /// Gets or sets a value indicating whether to prefer method with parameter for callback.
-                /// </summary>
-                public bool PreferCallbackWithParameter { get; set; }
-
-                /// <summary>
                 /// Gets or sets the access modifier for the getter.
                 /// </summary>
                 public AccessModifier Getter { get; set; }
@@ -234,6 +229,11 @@ partial class Generator
                 /// Gets or sets the generated command property name.
                 /// </summary>
                 public string PropertyName { get; set; }
+                
+                /// <summary>
+                /// Gets or sets the name of the callback method.
+                /// </summary>
+                public string CallbackName { get; set; }
 
                 /// <summary>
                 /// Gets or sets the name of the method that determines whether the command can execute.
