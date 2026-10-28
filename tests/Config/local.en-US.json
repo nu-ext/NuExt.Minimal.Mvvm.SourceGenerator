@@ -2,5 +2,11 @@
   "An error has occurred in Arg1:Arg2": "An error has occurred in {0}:{1}",
   "Description": "My Description",
   "Escaped": "This & that < those > \"these\" 'others' \\ here and there\r\n\\\\",
-  "Name": "My Name"
+  "Name": "My Name",
+  "Application": {
+    "Title": "Sample application",
+    "Messages": {
+      "ExitConfirmation": "Do you really want to exit?"
+    }
+  }
 }

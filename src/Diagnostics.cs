@@ -147,4 +147,35 @@ internal static class Diagnostics
         category: "Usage",
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true);
+
+    internal static readonly DiagnosticDescriptor MissingSystemTextJsonReference = new(
+        id: "NUEXT019",
+        title: "System.Text.Json reference is required",
+        messageFormat: "Type '{0}' annotated with [Localize] requires a reference to System.Text.Json",
+        category: "Usage",
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+    internal static readonly DiagnosticDescriptor MissingWpfMarkupExtensionReference = new(
+        id: "NUEXT020",
+        title: "WPF reference is required",
+        messageFormat: "Type '{0}' annotated with [Localize] and MarkupExtension requires a reference to WindowsBase",
+        category: "Usage",
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+    internal static readonly DiagnosticDescriptor InvalidMarkupExtensionName = new(
+        id: "NUEXT021",
+        title: "Invalid markup extension name",
+        messageFormat: "MarkupExtension name '{1}' specified by type '{0}' does not produce a valid C# type name",
+        category: "Usage",
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+    internal static readonly DiagnosticDescriptor MarkupExtensionTypeAlreadyDeclared = new(
+        id: "NUEXT022",
+        title: "Markup extension type is already declared",
+        messageFormat: "Type '{0}' cannot generate markup extension type '{1}' because it is already declared",
+        category: "Usage",
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
 }

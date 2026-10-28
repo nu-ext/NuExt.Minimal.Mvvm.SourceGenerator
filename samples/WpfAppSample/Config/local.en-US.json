@@ -1,20 +1,27 @@
 {
-	"Cancel": "Cancel",
-	"Close": "Close",
-	"Confirmation": "Confirmation",
-	"Delete": "Delete",
-	"Description": "Description",
-	"Error": "Error",
-	"Exit": "Exit",
-	"Login": "Login",
-	"Login failed. Check your credentials.": "Login failed. Check your credentials.",
-	"Password": "Password",
-	"Password is required": "Password is required.",
-	"Password must be at least Arg0 characters.": "Password must be at least {0} characters.",
-	"Remember me": "Remember me",
-	"Sign in": "Sign in",
-	"This user is locked": "This user is locked.",
-	"User name": "User name",
-	"User name is required.": "User name is required.",
-	"User name is too long (max Arg0).": "User name is too long (max {0})."
+  "Cancel": "Cancel",
+  "Close": "Close",
+  "Confirmation": "Confirmation",
+  "Delete": "Delete",
+  "Description": "Description",
+  "Error": "Error",
+  "Exit": "Exit",
+  "Login": {
+    "Title": "Login",
+    "Password": "Password",
+    "RememberMe": "Remember me",
+    "SignIn": "Sign in",
+    "UserName": "User name"
+  },
+  "Validation": {
+    "LoginFailed": "Login failed. Check your credentials.",
+    "PasswordRequired": "Password is required.",
+    "PasswordTooShort": "Password must be at least {0} characters.",
+    "UserLocked": "This user is locked.",
+    "UserNameRequired": "User name is required.",
+    "UserNameTooLong": "User name is too long (max {0})."
+  },
+  "MainWindow": {
+    "Title": "Sample application"
+  }
 }

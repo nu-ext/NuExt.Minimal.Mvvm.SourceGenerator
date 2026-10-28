@@ -33,7 +33,7 @@
   - Supports property-level and entity-level validation scopes.
   - Provides synchronous and asynchronous validation helpers.
 - **Localization**
-  - Generates localization properties from JSON files supplied through MSBuild `AdditionalFiles`.
+  - Generates localization properties, nested sections, runtime JSON loading, and optional WPF markup extensions from JSON files supplied through MSBuild `AdditionalFiles`.
 
 ## Attributes
 
@@ -46,7 +46,8 @@
 - **`[CustomAttribute]`**: Applies an attribute to a generated member.
 - **`[UseCommandManager]`**: Enables automatic `CanExecute` reevaluation through WPF `CommandManager.RequerySuggested`. Can be applied together with `[Command]` for complete command generation or with `[Notify]` for command-property-only generation.
 - **`[NotifyDataErrorInfo]`**: Generates `INotifyDataErrorInfo` infrastructure.
-- **`[Localize]`**: Generates localization members from a JSON file supplied through MSBuild `AdditionalFiles`.
+- **`[Localize]`**: Generates localization properties, nested sections, and runtime JSON loading from a file supplied through MSBuild `AdditionalFiles`.
+  - **Option:** `MarkupExtension` generates an optional WPF markup extension with the specified name.
 
 ## Install
 
@@ -176,7 +177,7 @@ private Task SaveAsync(CancellationToken cancellationToken)
 }
 ```
 
-### `CanExecute` resolution
+### CanExecute resolution
 
 When `CanExecute` is not specified, the generator looks for an accessible method named `Can{CommandMethodName}`. For an asynchronous command method, the trailing `Async` suffix is removed first.
 
@@ -406,9 +407,11 @@ public partial class EditorViewModel : ViewModelBase
 }
 ```
 
-## Localization (`AdditionalFiles`)
+## Localization (AdditionalFiles)
 
-Example `csproj` snippet for `[Localize("local.en.json")]`:
+The localization generator provides a lightweight compile-time localization model for desktop MVVM applications. It generates a strongly typed API from JSON, supports nested sections for structured access, and allows localization values to be overridden from another JSON file at runtime without reflection.
+
+Add the default localization JSON file through MSBuild `AdditionalFiles`:
 
 ```xml
 <ItemGroup>
@@ -416,12 +419,118 @@ Example `csproj` snippet for `[Localize("local.en.json")]`:
 </ItemGroup>
 ```
 
-The generator will create a static class with string properties populated from that JSON. At runtime, localization can also be loaded from the specified file (see [samples](https://github.com/nu-ext/NuExt.Minimal.Mvvm.SourceGenerator/tree/main/samples)).
+Apply `[Localize]` to a static partial class:
+
+```csharp
+using Minimal.Mvvm;
+
+[Localize("local.en.json")]
+public static partial class Loc
+{
+}
+```
+
+The JSON root may contain both string values and nested sections:
+
+```json
+{
+  "Cancel": "Cancel",
+  "Close": "Close",
+  "Login": {
+    "Title": "Login",
+    "Password": "Password",
+    "RememberMe": "Remember me",
+    "SignIn": "Sign in",
+    "UserName": "User name"
+  },
+  "Validation": {
+    "PasswordRequired": "Password is required.",
+    "PasswordTooShort": "Password must be at least {0} characters."
+  },
+  "MainWindow": {
+    "Title": "Sample application"
+  }
+}
+```
+
+Semantic keys are recommended because they produce a clear and stable generated API. Non-semantic keys are also supported and are converted to valid C# property names. Localization files should normally have the same keys and section structure, with only their values differing.
+
+String values are generated as static properties. JSON objects are generated as nested static classes:
+
+```csharp
+var cancel = Loc.Cancel;
+var title = Loc.MainWindow.Title;
+var message = Loc.Validation.PasswordTooShort;
+```
+
+Sections may be nested to any depth and may coexist with string values at the same level.
+
+### Loading localization at runtime
+
+The generated class provides `LoadFromJsonFile` for loading another localization file without reflection:
+
+```csharp
+var fileName = Path.Combine(configDirectory, $"local.{culture}.json");
+if (File.Exists(fileName))
+{
+    Loc.LoadFromJsonFile(fileName);
+}
+```
+
+Values missing from the runtime file retain their compile-time defaults. Unknown keys in the runtime file are ignored. Invalid JSON and localization values other than strings or objects cause an exception.
+
+Runtime loading requires a reference to `System.Text.Json`.
+
+### Using localization in WPF XAML
+
+Flat localization properties can be referenced directly through `x:Static`:
+
+```xml
+<Button Content="{x:Static local:Loc.Cancel}" />
+```
+
+This is the preferred syntax for flat properties because the referenced property is checked by the XAML compiler.
+
+Nested localization sections cannot be referenced directly through `x:Static`. To access them from WPF XAML, enable the generated markup extension:
+
+```csharp
+using Minimal.Mvvm;
+
+[Localize("local.en.json", MarkupExtension = "Loc")]
+internal static partial class Loc
+{
+}
+```
+
+The value `"Loc"` generates `LocExtension`. The standard XAML markup-extension naming convention allows it to be used without the `Extension` suffix:
+
+```xml
+<Window
+    xmlns:local="clr-namespace:SampleApp"
+    Title="{local:Loc MainWindow.Title}">
+    <StackPanel>
+        <Button Content="{x:Static local:Loc.Cancel}" />
+        <TextBlock Text="{local:Loc Login.Title}" />
+        <TextBlock Text="{local:Loc Login.UserName}" />
+    </StackPanel>
+</Window>
+```
+
+Flat properties may also be accessed through the generated markup extension:
+
+```xml
+<Button Content="{local:Loc Cancel}" />
+```
+
+An unknown markup-extension path is displayed as the path itself, making incorrect keys visible in the application and XAML Designer instead of failing window creation.
+
+`MarkupExtension` is optional and requires WPF. When it is omitted or set to `null`, no markup extension is generated.
 
 ## Ecosystem
 
 - [NuExt.Minimal.Mvvm](https://github.com/nu-ext/NuExt.Minimal.Mvvm)
 - [NuExt.Minimal.Behaviors.Wpf](https://github.com/nu-ext/NuExt.Minimal.Behaviors.Wpf)
+- [NuExt.Presentation.Wpf](https://github.com/nu-ext/NuExt.Presentation.Wpf)
 - [NuExt.Minimal.Mvvm.Wpf](https://github.com/nu-ext/NuExt.Minimal.Mvvm.Wpf)
 - [NuExt.Minimal.Mvvm.MahApps.Metro](https://github.com/nu-ext/NuExt.Minimal.Mvvm.MahApps.Metro)
 - [NuExt.System](https://github.com/nu-ext/NuExt.System)

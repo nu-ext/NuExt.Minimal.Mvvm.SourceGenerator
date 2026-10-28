@@ -5,7 +5,7 @@ namespace WpfAppSample;
 /// <summary>
 /// Localization
 /// </summary>
-[Localize("local.en-US.json")]
+[Localize("local.en-US.json", MarkupExtension = "Loc")]
 internal static partial class Loc
 {
 }

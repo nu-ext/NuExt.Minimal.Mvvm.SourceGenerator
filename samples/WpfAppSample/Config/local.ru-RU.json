@@ -1,20 +1,27 @@
 {
-	"Cancel": "Отмена",
-	"Close": "Закрыть",
-	"Confirmation": "Подтверждение",
-	"Delete": "Удалить", 
-	"Description": "Описание",
-	"Error": "Ошибка",
-	"Exit": "Выход",
-	"Login": "Логин",
-	"Login failed. Check your credentials.": "Не удалось войти. Проверьте параметры входа.",
-	"Password": "Пароль",
-	"Password is required.": "Необходимо указать пароль.",
-	"Password must be at least Arg0 characters.": "Пароль должен быть не менее {0} символов.",
-	"Remember me": "Запомнить",
-	"Sign in": "Войти",
-	"This user is locked": "Пользователь заблокирован.",
-	"User name": "Имя пользователя",
-	"User name is required.": "Необходимо указать имя пользователя.",
-	"User name is too long (max Arg0).": "Слишком длинное имя пользователя (макс {0})."
+  "Cancel": "Отмена",
+  "Close": "Закрыть",
+  "Confirmation": "Подтверждение",
+  "Delete": "Удалить",
+  "Description": "Описание",
+  "Error": "Ошибка",
+  "Exit": "Выход",
+  "Login": {
+    "Title": "Логин",
+    "Password": "Пароль",
+    "RememberMe": "Запомнить",
+    "SignIn": "Войти",
+    "UserName": "Имя пользователя"
+  },
+  "Validation": {
+    "LoginFailed": "Не удалось войти. Проверьте параметры входа.",
+    "PasswordRequired": "Необходимо указать пароль.",
+    "PasswordTooShort": "Пароль должен быть не менее {0} символов.",
+    "UserLocked": "Пользователь заблокирован.",
+    "UserNameRequired": "Необходимо указать имя пользователя.",
+    "UserNameTooLong": "Слишком длинное имя пользователя (макс {0})."
+  },
+  "MainWindow": {
+    "Title": "Пример приложения"
+  }
 }

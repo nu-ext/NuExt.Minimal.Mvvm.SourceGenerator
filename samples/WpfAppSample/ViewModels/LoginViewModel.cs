@@ -61,9 +61,9 @@ internal sealed partial class LoginViewModel(IAuthService auth) : ViewModelBase,
     {
         var errors = new List<string>();
         if (string.IsNullOrWhiteSpace(UserName))
-            errors.Add(Loc.User_name_is_required_);
+            errors.Add(Loc.Validation.UserNameRequired);
         else if (UserName.Length > MaxUserNameLength)
-            errors.Add(string.Format(Loc.User_name_is_too_long__max_Arg0__, MaxUserNameLength));
+            errors.Add(string.Format(Loc.Validation.UserNameTooLong, MaxUserNameLength));
         ReplaceErrors(errors, nameof(UserName));
     }
 
@@ -94,7 +94,7 @@ internal sealed partial class LoginViewModel(IAuthService auth) : ViewModelBase,
 
         if (locked)
         {
-            SetError(Loc.This_user_is_locked, nameof(UserName));
+            SetError(Loc.Validation.UserLocked, nameof(UserName));
         }
         else
         {
@@ -106,9 +106,9 @@ internal sealed partial class LoginViewModel(IAuthService auth) : ViewModelBase,
     {
         var errors = new List<string>();
         if (string.IsNullOrWhiteSpace(Password))
-            errors.Add(Loc.Password_is_required);
+            errors.Add(Loc.Validation.PasswordRequired);
         else if (Password.Length < MinPasswordLength)
-            errors.Add(string.Format(Loc.Password_must_be_at_least_Arg0_characters_, MinPasswordLength));
+            errors.Add(string.Format(Loc.Validation.PasswordTooShort, MinPasswordLength));
         ReplaceErrors(errors, nameof(Password));
     }
 
@@ -132,7 +132,7 @@ internal sealed partial class LoginViewModel(IAuthService auth) : ViewModelBase,
         if (!ok)
         {
             // entity-level error, not tied to a specific field
-            SetError(Loc.Login_failed__Check_your_credentials_, string.Empty);
+            SetError(Loc.Validation.LoginFailed, string.Empty);
             return;
         }
 

@@ -2,6 +2,7 @@
 using System.Collections.Immutable;
 using System.Text;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Text;
 
 /* Useful links
@@ -80,19 +81,14 @@ public partial class Generator : IIncrementalGenerator
                     transform: transform);
         }).ToList();
 
-        var pipeline = context.AdditionalTextsProvider
-            .Where(static (text) => text.Path.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
-            .Select(static (text, cancellationToken) =>
-            {
-                var name = Path.GetFileName(text.Path);
-                return (name, text);
-            });
-
-        var combined = context.CompilationProvider.Combine(pipeline.Collect()).Combine(pipelines.MergeSources());
+        var localizationFilesPipeline = context.AdditionalTextsProvider
+            .Where(static text => text.Path.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+            .Select(static (text, cancellationToken) => LocalizePropertyGenerator.ParseJson(Path.GetFileName(text.Path), text.GetText(cancellationToken)));
+        var combined = context.CompilationProvider.Combine(localizationFilesPipeline.Collect()).Combine(pipelines.MergeSources());
 
         context.RegisterSourceOutput(combined, static (context, pair) =>
         {
-            var ((compilation, additionalTexts), items) = pair;
+            var ((compilation, localizationFiles), items) = pair;
 
             var nullableContextOptions = compilation.Options.NullableContextOptions;
             var typeInfos = new Dictionary<INamedTypeSymbol, List<(ISymbol member, ImmutableArray<AttributeData> attributes, AttributeType attributeType)>>(SymbolEqualityComparer.Default);
@@ -108,15 +104,13 @@ public partial class Generator : IIncrementalGenerator
                                 if (!NotifyPropertyGenerator.IsValidContainingType(compilation, fieldSymbol.ContainingType))
                                 {
                                     // first, report and skip if containing type is not valid
-                                    context.ReportDiagnostic(Diagnostic.Create(Diagnostics.InvalidContainingType,
-                                        symbol.Locations.FirstOrDefault(), symbol.ContainingType.Name, symbol.Name, attributeType));
+                                    context.ReportDiagnostic(Diagnostic.Create(Diagnostics.InvalidContainingType, symbol.Locations.FirstOrDefault(), symbol.ContainingType.Name, symbol.Name, attributeType));
                                     continue;
                                 }
                                 if (!NotifyPropertyGenerator.IsValidFieldSignature(compilation, fieldSymbol, attributes))
                                 {
                                     // second, report and skip if field is not valid
-                                    context.ReportDiagnostic(Diagnostic.Create(Diagnostics.InvalidNotifyFieldSignature,
-                                        fieldSymbol.Locations.FirstOrDefault(), fieldSymbol.Name));
+                                    context.ReportDiagnostic(Diagnostic.Create(Diagnostics.InvalidNotifyFieldSignature, fieldSymbol.Locations.FirstOrDefault(), fieldSymbol.Name));
                                     continue;
                                 }
                                 break;
@@ -125,15 +119,13 @@ public partial class Generator : IIncrementalGenerator
                                 if (!NotifyPropertyGenerator.IsValidContainingType(compilation, propertySymbol.ContainingType))
                                 {
                                     // first, report and skip if containing type is not valid
-                                    context.ReportDiagnostic(Diagnostic.Create(Diagnostics.InvalidContainingType,
-                                        symbol.Locations.FirstOrDefault(), symbol.ContainingType.Name, symbol.Name, attributeType));
+                                    context.ReportDiagnostic(Diagnostic.Create(Diagnostics.InvalidContainingType, symbol.Locations.FirstOrDefault(), symbol.ContainingType.Name, symbol.Name, attributeType));
                                     continue;
                                 }
                                 if (!NotifyPropertyGenerator.IsValidPropertySignature(compilation, propertySymbol))
                                 {
                                     // second, report and skip if property is not valid
-                                    context.ReportDiagnostic(Diagnostic.Create(Diagnostics.InvalidNotifyPropertySignature,
-                                        propertySymbol.Locations.FirstOrDefault(), propertySymbol.Name));
+                                    context.ReportDiagnostic(Diagnostic.Create(Diagnostics.InvalidNotifyPropertySignature, propertySymbol.Locations.FirstOrDefault(), propertySymbol.Name));
                                     continue;
                                 }
                                 break;
@@ -147,15 +139,13 @@ public partial class Generator : IIncrementalGenerator
                                 if (!NotifyPropertyGenerator.IsValidContainingType(compilation, methodSymbol.ContainingType))
                                 {
                                     // second, report and skip if containing type is not valid
-                                    context.ReportDiagnostic(Diagnostic.Create(Diagnostics.InvalidContainingType,
-                                        symbol.Locations.FirstOrDefault(), symbol.ContainingType.Name, symbol.Name, attributeType));
+                                    context.ReportDiagnostic(Diagnostic.Create(Diagnostics.InvalidContainingType, symbol.Locations.FirstOrDefault(), symbol.ContainingType.Name, symbol.Name, attributeType));
                                     continue;
                                 }
                                 if (!NotifyPropertyGenerator.IsValidCommandMethodSignature(compilation, methodSymbol))
                                 {
                                     // third, report and skip if method is not valid
-                                    context.ReportDiagnostic(Diagnostic.Create(Diagnostics.InvalidNotifyMethodSignature,
-                                        methodSymbol.Locations.FirstOrDefault(), methodSymbol.Name));
+                                    context.ReportDiagnostic(Diagnostic.Create(Diagnostics.InvalidNotifyMethodSignature, methodSymbol.Locations.FirstOrDefault(), methodSymbol.Name));
                                     continue;
                                 }
                                 break;
@@ -178,23 +168,19 @@ public partial class Generator : IIncrementalGenerator
 
                         if (NotifyPropertyGenerator.HasNotifyAttribute(commandMethodSymbol))
                         {
-                            context.ReportDiagnostic(Diagnostic.Create(Diagnostics.ConflictingCommandAttributes,
-                                commandMethodSymbol.Locations.FirstOrDefault(), commandMethodSymbol.Name));
+                            context.ReportDiagnostic(Diagnostic.Create(Diagnostics.ConflictingCommandAttributes, commandMethodSymbol.Locations.FirstOrDefault(), commandMethodSymbol.Name));
                             continue;
                         }
 
                         if (!NotifyPropertyGenerator.IsValidContainingType(compilation, commandMethodSymbol.ContainingType))
                         {
-                            context.ReportDiagnostic(Diagnostic.Create(Diagnostics.InvalidContainingType,
-                                symbol.Locations.FirstOrDefault(), symbol.ContainingType.Name, symbol.Name, attributeType));
+                            context.ReportDiagnostic(Diagnostic.Create(Diagnostics.InvalidContainingType, symbol.Locations.FirstOrDefault(), symbol.ContainingType.Name, symbol.Name, attributeType));
                             continue;
                         }
 
                         if (!NotifyPropertyGenerator.IsValidCommandMethodSignature(compilation, commandMethodSymbol))
                         {
-                            context.ReportDiagnostic(Diagnostic.Create(Diagnostics.InvalidCommandMethodSignature,
-                                commandMethodSymbol.Locations.FirstOrDefault(), commandMethodSymbol.Name));
-
+                            context.ReportDiagnostic(Diagnostic.Create(Diagnostics.InvalidCommandMethodSignature, commandMethodSymbol.Locations.FirstOrDefault(), commandMethodSymbol.Name));
                             continue;
                         }
 
@@ -213,15 +199,13 @@ public partial class Generator : IIncrementalGenerator
 
                         if (!NotifyPropertyGenerator.IsValidContainingType(compilation, namedTypeSymbol))
                         {
-                            context.ReportDiagnostic(Diagnostic.Create(Diagnostics.InvalidNotifyDataErrorInfoContainingType,
-                                namedTypeSymbol.Locations.FirstOrDefault(), namedTypeSymbol.Name));
+                            context.ReportDiagnostic(Diagnostic.Create(Diagnostics.InvalidNotifyDataErrorInfoContainingType, namedTypeSymbol.Locations.FirstOrDefault(), namedTypeSymbol.Name));
                             continue;
                         }
 
                         if (!NotifyDataErrorInfoGenerator.IsValidContainingType(compilation, namedTypeSymbol))
                         {
-                            context.ReportDiagnostic(Diagnostic.Create(Diagnostics.MissingNotifyDataErrorInfoImplementation,
-                                namedTypeSymbol.Locations.FirstOrDefault(), namedTypeSymbol.Name));
+                            context.ReportDiagnostic(Diagnostic.Create(Diagnostics.MissingNotifyDataErrorInfoImplementation, namedTypeSymbol.Locations.FirstOrDefault(), namedTypeSymbol.Name));
                             continue;
                         }
 
@@ -238,17 +222,48 @@ public partial class Generator : IIncrementalGenerator
                             continue;
                         }
 
-                        if (!LocalizePropertyGenerator.IsValidConfiguration(attributes, additionalTexts))
+                        if (!LocalizePropertyGenerator.IsValidConfiguration(attributes, localizationFiles))
                         {
-                            context.ReportDiagnostic(Diagnostic.Create(Diagnostics.InvalidLocalizeConfiguration,
-                                typeSymbol.Locations.FirstOrDefault(), typeSymbol.Name));
+                            context.ReportDiagnostic(Diagnostic.Create(Diagnostics.InvalidLocalizeConfiguration, typeSymbol.Locations.FirstOrDefault(), typeSymbol.Name));
                             continue;
                         }
 
-                        if (!LocalizePropertyGenerator.TryValidateJson(attributes, additionalTexts, out var jsonFileName, out var error))
+                        if (compilation.GetTypeByMetadataName("System.Text.Json.JsonDocument") is null)
                         {
-                            context.ReportDiagnostic(Diagnostic.Create(Diagnostics.InvalidLocalizationFile,
-                                typeSymbol.Locations.FirstOrDefault(), jsonFileName, typeSymbol.Name, error));
+                            context.ReportDiagnostic(Diagnostic.Create(Diagnostics.MissingSystemTextJsonReference, typeSymbol.Locations.FirstOrDefault(), typeSymbol.Name));
+                            continue;
+                        }
+
+                        var markupExtension = LocalizePropertyGenerator.GetMarkupExtensionName(attributes);
+                        if (markupExtension is not null)
+                        {
+                            if (string.IsNullOrWhiteSpace(markupExtension))
+                            {
+                                context.ReportDiagnostic(Diagnostic.Create(Diagnostics.InvalidMarkupExtensionName, typeSymbol.Locations.FirstOrDefault(), typeSymbol.Name, markupExtension));
+                                continue;
+                            }
+                            var markupExtensionTypeName = $"{markupExtension}Extension";
+                            if (!SyntaxFacts.IsValidIdentifier(markupExtensionTypeName))
+                            {
+                                context.ReportDiagnostic(Diagnostic.Create(Diagnostics.InvalidMarkupExtensionName, typeSymbol.Locations.FirstOrDefault(), typeSymbol.Name, markupExtension));
+                                continue;
+                            }
+                            var markupExtensionMetadataName = typeSymbol.ContainingNamespace.IsGlobalNamespace ? markupExtensionTypeName : $"{typeSymbol.ContainingNamespace.ToDisplayString()}.{markupExtensionTypeName}";
+                            if (compilation.GetTypeByMetadataName(markupExtensionMetadataName) is not null)
+                            {
+                                context.ReportDiagnostic(Diagnostic.Create(Diagnostics.MarkupExtensionTypeAlreadyDeclared, typeSymbol.Locations.FirstOrDefault(), typeSymbol.Name, markupExtensionTypeName));
+                                continue;
+                            }
+                            if (compilation.GetTypeByMetadataName("System.Windows.Markup.MarkupExtension") is null)
+                            {
+                                context.ReportDiagnostic(Diagnostic.Create(Diagnostics.MissingWpfMarkupExtensionReference, typeSymbol.Locations.FirstOrDefault(), typeSymbol.Name));
+                                continue;
+                            }
+                        }
+
+                        if (!LocalizePropertyGenerator.TryValidateJson(attributes, localizationFiles, out var jsonFileName, out var error))
+                        {
+                            context.ReportDiagnostic(Diagnostic.Create(Diagnostics.InvalidLocalizationFile, typeSymbol.Locations.FirstOrDefault(), jsonFileName, typeSymbol.Name, error));
                             continue;
                         }
 
@@ -267,8 +282,7 @@ public partial class Generator : IIncrementalGenerator
 
                         if (!CommandGenerator.IsValidContainingType(compilation, commandTypeSymbol))
                         {
-                            context.ReportDiagnostic(Diagnostic.Create(Diagnostics.InvalidGenerateCommandsType,
-                                commandTypeSymbol.Locations.FirstOrDefault(), commandTypeSymbol.Name));
+                            context.ReportDiagnostic(Diagnostic.Create(Diagnostics.InvalidGenerateCommandsType, commandTypeSymbol.Locations.FirstOrDefault(), commandTypeSymbol.Name));
                             continue;
                         }
 
@@ -276,8 +290,7 @@ public partial class Generator : IIncrementalGenerator
                         foreach (var declaredInfrastructureMethod in CommandGenerator.GetDeclaredInfrastructureMethods(compilation, commandTypeSymbol))
                         {
                             hasDeclaredInfrastructureMethods = true;
-                            context.ReportDiagnostic(Diagnostic.Create(Diagnostics.CommandInfrastructureMethodDeclared,
-                                declaredInfrastructureMethod.Locations.FirstOrDefault(), commandTypeSymbol.Name, declaredInfrastructureMethod.Name));
+                            context.ReportDiagnostic(Diagnostic.Create(Diagnostics.CommandInfrastructureMethodDeclared, declaredInfrastructureMethod.Locations.FirstOrDefault(), commandTypeSymbol.Name, declaredInfrastructureMethod.Name));
                         }
                         if (hasDeclaredInfrastructureMethods)
                         {
@@ -352,36 +365,34 @@ public partial class Generator : IIncrementalGenerator
                              .GroupBy(static item => item.propertyName, StringComparer.Ordinal)
                              .Where(static group => group.Skip(1).Any()))
                 {
-                    foreach (var item in group)
+                    foreach ((ISymbol member, var propertyName) in group)
                     {
-                        invalidGeneratedMembers.Add(item.member);
+                        invalidGeneratedMembers.Add(member);
 
-                        if (generateCommands && item.member is IMethodSymbol)
+                        if (generateCommands && member is IMethodSymbol)
                         {
                             hasInvalidCommandInfo = true;
                         }
 
-                        context.ReportDiagnostic(Diagnostic.Create(Diagnostics.DuplicateGeneratedPropertyName,
-                            item.member.Locations.FirstOrDefault(), containingType.Name, item.propertyName));
+                        context.ReportDiagnostic(Diagnostic.Create(Diagnostics.DuplicateGeneratedPropertyName, member.Locations.FirstOrDefault(), containingType.Name, propertyName));
                     }
                 }
 
-                foreach (var item in generatedProperties)
+                foreach ((ISymbol member, var propertyName) in generatedProperties)
                 {
-                    if (item.member is IPropertySymbol || containingType.GetMembers(item.propertyName).Length == 0)
+                    if (member is IPropertySymbol || containingType.GetMembers(propertyName).Length == 0)
                     {
                         continue;
                     }
 
-                    invalidGeneratedMembers.Add(item.member);
+                    invalidGeneratedMembers.Add(member);
 
-                    if (generateCommands && item.member is IMethodSymbol)
+                    if (generateCommands && member is IMethodSymbol)
                     {
                         hasInvalidCommandInfo = true;
                     }
 
-                    context.ReportDiagnostic(Diagnostic.Create(Diagnostics.GeneratedPropertyAlreadyDeclared,
-                        item.member.Locations.FirstOrDefault(), containingType.Name, item.propertyName, item.member.Name));
+                    context.ReportDiagnostic(Diagnostic.Create(Diagnostics.GeneratedPropertyAlreadyDeclared, member.Locations.FirstOrDefault(), containingType.Name, propertyName, member.Name));
                 }
 
                 if (generateCommands)
@@ -405,18 +416,15 @@ public partial class Generator : IIncrementalGenerator
 
                         if (canExecuteResolution == CanExecuteResolution.NotFound)
                         {
-                            context.ReportDiagnostic(Diagnostic.Create(Diagnostics.CommandCanExecuteMethodNotFound,
-                                commandMethod.Locations.FirstOrDefault(), commandMethod.Name, canExecuteName));
+                            context.ReportDiagnostic(Diagnostic.Create(Diagnostics.CommandCanExecuteMethodNotFound, commandMethod.Locations.FirstOrDefault(), commandMethod.Name, canExecuteName));
                         }
                         else if (canExecuteResolution == CanExecuteResolution.InvalidSignature)
                         {
-                            context.ReportDiagnostic(Diagnostic.Create(Diagnostics.InvalidCommandCanExecuteMethodSignature,
-                                commandMethod.Locations.FirstOrDefault(), commandMethod.Name, canExecuteName));
+                            context.ReportDiagnostic(Diagnostic.Create(Diagnostics.InvalidCommandCanExecuteMethodSignature, commandMethod.Locations.FirstOrDefault(), commandMethod.Name, canExecuteName));
                         }
                         else
                         {
-                            context.ReportDiagnostic(Diagnostic.Create(Diagnostics.CommandTypeNotFound,
-                                commandMethod.Locations.FirstOrDefault(), commandMethod.Name));
+                            context.ReportDiagnostic(Diagnostic.Create(Diagnostics.CommandTypeNotFound, commandMethod.Locations.FirstOrDefault(), commandMethod.Name));
                         }
                     }
 
@@ -426,14 +434,14 @@ public partial class Generator : IIncrementalGenerator
 
                         foreach (var commandInfo in group)
                         {
-                            context.ReportDiagnostic(Diagnostic.Create(Diagnostics.DuplicateCommandMethodName,
-                                commandInfo.ExecuteMethod.Locations.FirstOrDefault(), containingType.Name, commandInfo.ExecuteMethod.Name));
+                            context.ReportDiagnostic(Diagnostic.Create(Diagnostics.DuplicateCommandMethodName, commandInfo.ExecuteMethod.Locations.FirstOrDefault(), containingType.Name, commandInfo.ExecuteMethod.Name));
                         }
                     }
 
                 } // generateCommands
 
                 bool isFirst = true;
+                string? markupExtensionName = null;
                 foreach (var group in members.GroupBy(m => m.attributeType))
                 {
                     switch (group.Key)
@@ -450,7 +458,9 @@ public partial class Generator : IIncrementalGenerator
                             break;
 
                         case AttributeType.Localize:
-                            LocalizePropertyGenerator.Generate(new LocalizePropertyGeneratorContext(writer, group.Select(m => (m.member, m.attributes)), additionalTexts), ref isFirst);
+                            var localizeItem = group.Single();
+                            LocalizePropertyGenerator.Generate(new LocalizePropertyGeneratorContext(writer, [(localizeItem.member, localizeItem.attributes)], localizationFiles), ref isFirst);
+                            markupExtensionName = LocalizePropertyGenerator.GetMarkupExtensionName(localizeItem.attributes);
                             break;
 
                         default:
@@ -467,6 +477,13 @@ public partial class Generator : IIncrementalGenerator
                 {
                     writer.Indent--;
                     writer.WriteLine('}');
+                }
+
+                if (!string.IsNullOrWhiteSpace(markupExtensionName))
+                {
+                    writer.WriteLineNoTabs(string.Empty);
+                    var localizationTypeName = containingType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+                    LocalizePropertyGenerator.GenerateMarkupExtension(writer, markupExtensionName!, localizationTypeName);
                 }
 
                 writer.WriteSourceNamespaceEnd(containingNamespace);

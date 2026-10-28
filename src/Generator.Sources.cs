@@ -73,6 +73,16 @@ partial class Generator
 
                 }
 
+                /// <summary>
+                /// Gets or sets the name of the generated WPF markup extension.
+                /// </summary>
+                public string MarkupExtension { get; set; }
+
+                /// <summary>
+                /// Converts the specified string to a valid C# property name.
+                /// </summary>
+                /// <param name="key">The string to convert.</param>
+                /// <returns>A valid C# property name.</returns>
                 public static string StringToValidPropertyName(string key)
                 {
                     _ = key ?? throw new ArgumentNullException(nameof(key));
