@@ -25,3 +25,14 @@ NUEXT015 | Usage    | Error    | Duplicate command method name
 NUEXT016 | Usage    | Error    | Duplicate generated property name
 NUEXT017 | Usage    | Error    | Generated property is already declared
 NUEXT018 | Usage    | Error    | Invalid localization file
+
+## Release 0.8.3
+
+### New Rules
+
+Rule ID  | Category | Severity | Notes
+---------|----------|----------|-------
+NUEXT019 | Usage    | Error    | System.Text.Json reference is required
+NUEXT020 | Usage    | Error    | WPF reference is required
+NUEXT021 | Usage    | Error    | Invalid markup extension name
+NUEXT022 | Usage    | Error    | Markup extension type is already declared

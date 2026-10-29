@@ -11,7 +11,7 @@
     <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
     <Description>Roslyn source generator for NuExt.Minimal.Mvvm that generates observable properties, command properties, validation infrastructure, and localization members at compile time.</Description>
     <RootNamespace>Minimal.Mvvm.SourceGenerator</RootNamespace>
-    <VersionPrefix>0.8.2</VersionPrefix>
+    <VersionPrefix>0.8.3</VersionPrefix>
   </PropertyGroup>
 
   <ItemGroup>
