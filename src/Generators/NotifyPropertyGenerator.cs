@@ -249,10 +249,10 @@ internal partial struct NotifyPropertyGenerator
                         writer.Write($"<{propCtx.FullyQualifiedTypeName}>");
                         break;
                     case 2:
-                        writer.Write($"<string{nullable}, {propCtx.FullyQualifiedTypeName}>");
+                        writer.Write($"<{propCtx.FullyQualifiedTypeName}, {propCtx.FullyQualifiedTypeName}>");
                         break;
                     case 3:
-                        writer.Write($"<string{nullable}, {propCtx.FullyQualifiedTypeName}, {propCtx.FullyQualifiedTypeName}>");
+                        writer.Write($"<{propCtx.FullyQualifiedTypeName}, {propCtx.FullyQualifiedTypeName}, string{nullable}>");
                         break;
                 }
                 writer.WriteLine($"{nullable} {backingCallbackFieldName};");
@@ -509,11 +509,11 @@ internal partial struct NotifyPropertyGenerator
         {
             0 => true,
             1 => parameterType?.IsAssignableFromType(parameters[0].Type) == true,
-            2 => parameters[0].Type.SpecialType == SpecialType.System_String &&
+            2 => parameterType?.IsAssignableFromType(parameters[0].Type) == true &&
                  parameterType?.IsAssignableFromType(parameters[1].Type) == true,
-            3 => parameters[0].Type.SpecialType == SpecialType.System_String &&
+            3 => parameterType?.IsAssignableFromType(parameters[0].Type) == true &&
                  parameterType?.IsAssignableFromType(parameters[1].Type) == true &&
-                 parameterType?.IsAssignableFromType(parameters[2].Type) == true,
+                 parameters[2].Type.SpecialType == SpecialType.System_String,
             _ => false
         };
     }
