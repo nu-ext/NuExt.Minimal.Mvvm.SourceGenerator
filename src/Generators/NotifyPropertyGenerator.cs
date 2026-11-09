@@ -7,8 +7,8 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace Minimal.Mvvm.SourceGenerator;
 
-internal readonly ref struct NotifyPropertyGeneratorContext(IndentedTextWriter writer, IEnumerable<ISymbol> members, 
-    string typePrefix, HashSet<string> backingFieldNameCache)
+internal readonly ref struct NotifyPropertyGeneratorContext(IndentedTextWriter writer, IEnumerable<ISymbol> members, string typePrefix,
+    HashSet<string> backingFieldNameCache, Dictionary<(string CallbackName, int ParameterCount, string TypeName), string> callbackFieldNameCache)
 {
     internal readonly IndentedTextWriter Writer = writer;
     internal readonly IEnumerable<ISymbol> Members = members;
@@ -29,6 +29,18 @@ internal readonly ref struct NotifyPropertyGeneratorContext(IndentedTextWriter w
             backingFieldName = original + ++i;
         }
         return backingFieldName;
+    }
+
+    internal (string FieldName, bool Added) GetOrAddCallbackFieldName(string callbackName, int parameterCount, string typeName, string suggestedFieldName)
+    {
+        var key = (callbackName, parameterCount, typeName);
+        if (callbackFieldNameCache.TryGetValue(key, out var fieldName))
+        {
+            return (fieldName, false);
+        }
+        fieldName = GetOrAddBackingFieldName(suggestedFieldName);
+        callbackFieldNameCache.Add(key, fieldName);
+        return (fieldName, true);
     }
 }
 
@@ -226,22 +238,26 @@ internal partial struct NotifyPropertyGenerator
         string? backingCallbackFieldName = null;
         if (propCtx.CallbackData.CallbackName != null)
         {
-            backingCallbackFieldName = ctx.GetOrAddBackingFieldName($"{propCtx.BackingFieldName}ChangedCallback");
-            writer.Write("private global::System.Action");
-            switch (propCtx.CallbackData.ParameterCount)
+            var callbackFieldName = $"_{char.ToLowerInvariant(propCtx.CallbackData.CallbackName[0])}{propCtx.CallbackData.CallbackName.Substring(1)}Callback";
+            (backingCallbackFieldName, bool generateCallbackField) = ctx.GetOrAddCallbackFieldName(propCtx.CallbackData.CallbackName, propCtx.CallbackData.ParameterCount, propCtx.FullyQualifiedTypeName, callbackFieldName);
+            if (generateCallbackField)
             {
-                case 1:
-                    writer.Write($"<{propCtx.FullyQualifiedTypeName}>");
-                    break;
-                case 2:
-                    writer.Write($"<string{nullable}, {propCtx.FullyQualifiedTypeName}>");
-                    break;
-                case 3:
-                    writer.Write($"<string{nullable}, {propCtx.FullyQualifiedTypeName}, {propCtx.FullyQualifiedTypeName}>");
-                    break;
+                writer.Write("private global::System.Action");
+                switch (propCtx.CallbackData.ParameterCount)
+                {
+                    case 1:
+                        writer.Write($"<{propCtx.FullyQualifiedTypeName}>");
+                        break;
+                    case 2:
+                        writer.Write($"<string{nullable}, {propCtx.FullyQualifiedTypeName}>");
+                        break;
+                    case 3:
+                        writer.Write($"<string{nullable}, {propCtx.FullyQualifiedTypeName}, {propCtx.FullyQualifiedTypeName}>");
+                        break;
+                }
+                writer.WriteLine($"{nullable} {backingCallbackFieldName};");
+                writer.WriteLineNoTabs(string.Empty);
             }
-            writer.WriteLine($"{nullable} {backingCallbackFieldName};");
-            writer.WriteLineNoTabs(string.Empty);
         }
 
         #endregion

@@ -314,6 +314,7 @@ public partial class Generator : IIncrementalGenerator
             var outerTypes = new List<string>(4);
             var genCtx = new GeneratorContext(compilation, new HashSet<string>(StringComparer.Ordinal), new List<string>(4), new List<string>(4), true);
             var backingFieldNameCache = new HashSet<string>(StringComparer.Ordinal);
+            var callbackFieldNameCache = new Dictionary<(string CallbackName, int ParameterCount, string TypeName), string>();
             foreach (var typeInfo in typeInfos)
             {
                 var containingType = typeInfo.Key;
@@ -347,6 +348,7 @@ public partial class Generator : IIncrementalGenerator
                 {
                     backingFieldNameCache.Add(member.Name);
                 }
+                callbackFieldNameCache.Clear();
 
                 bool generateCommands = members.Any(static item => item.attributeType == AttributeType.GenerateCommands);
                 var commandInfos = new List<CommandInfo>();
@@ -449,8 +451,8 @@ public partial class Generator : IIncrementalGenerator
                         case AttributeType.Notify:
                         case AttributeType.Command:
                             NotifyPropertyGenerator.Generate(genCtx, new NotifyPropertyGeneratorContext(writer,
-                                    group.Select(static item => item.member).Where(member => !invalidGeneratedMembers.Contains(member)),
-                                    containingType.Name + '.', backingFieldNameCache), ref isFirst);
+                                group.Select(static item => item.member).Where(member => !invalidGeneratedMembers.Contains(member)),
+                                containingType.Name + '.', backingFieldNameCache, callbackFieldNameCache), ref isFirst);
                             break;
 
                         case AttributeType.NotifyDataErrorInfo:

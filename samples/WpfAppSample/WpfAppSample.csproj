@@ -9,7 +9,7 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="NuExt.Minimal.Mvvm" Version="0.8.0" />
+		<PackageReference Include="NuExt.Minimal.Mvvm" Version="0.8.1" />
 		<PackageReference Include="System.Text.Json" Version="10.0.14" />
 	</ItemGroup>
 
