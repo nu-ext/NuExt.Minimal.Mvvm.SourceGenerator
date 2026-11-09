@@ -76,7 +76,7 @@ internal partial struct NotifyPropertyGenerator
 
     private static readonly char[] s_trimChars = ['_'];
 
-    private readonly record struct CallbackData(string CallbackName, bool HasParameter);
+    private readonly record struct CallbackData(string CallbackName, int ParameterCount);
 
     private readonly record struct CustomAttributeData(string Attribute);
 
@@ -228,9 +228,14 @@ internal partial struct NotifyPropertyGenerator
         {
             backingCallbackFieldName = ctx.GetOrAddBackingFieldName($"{propCtx.BackingFieldName}ChangedCallback");
             writer.Write("private global::System.Action");
-            if (propCtx.CallbackData.HasParameter)
+            switch (propCtx.CallbackData.ParameterCount)
             {
-                writer.Write($"<{propCtx.FullyQualifiedTypeName}>");
+                case 1:
+                    writer.Write($"<{propCtx.FullyQualifiedTypeName}>");
+                    break;
+                case 2:
+                    writer.Write($"<string{nullable}, {propCtx.FullyQualifiedTypeName}>");
+                    break;
             }
             writer.WriteLine($"{nullable} {backingCallbackFieldName};");
             writer.WriteLineNoTabs(string.Empty);
@@ -445,46 +450,50 @@ internal partial struct NotifyPropertyGenerator
         for (var type = containingType; type is not null; type = type.BaseType)
         {
             bool found = false;
-            bool hasParameter = false;
-
+            int parameterCount = 0;
             foreach (var member in type.GetMembers(callbackName!))
             {
                 if (member is not IMethodSymbol method ||
                     !compilation.IsSymbolAccessibleWithin(method, containingType) ||
-                    !IsCallback(method, parameterType, out bool callbackHasParameter))
+                    !IsCallback(method, parameterType, out int callbackParameterCount))
                 {
                     continue;
                 }
-
                 found = true;
-                hasParameter |= callbackHasParameter;
+                parameterCount = Math.Max(parameterCount, callbackParameterCount);
             }
-
             if (found)
             {
-                return new CallbackData(callbackName!, hasParameter);
+                return new CallbackData(callbackName!, parameterCount);
             }
         }
 
-        return new CallbackData(callbackName!, HasParameter: false);
+        return new CallbackData(callbackName!, ParameterCount: 0);
     }
 
-    private static bool IsCallback(IMethodSymbol methodSymbol, ITypeSymbol? parameterType, out bool hasParameter)
+    private static bool IsCallback(IMethodSymbol methodSymbol, ITypeSymbol? parameterType, out int parameterCount)
     {
-        hasParameter = false;
+        parameterCount = 0;
         if (!methodSymbol.ReturnsVoid)
         {
             return false;
         }
 
         var parameters = methodSymbol.Parameters;
-        if (parameters.Length > 1 || parameters.Any(static parameter => parameter.RefKind != RefKind.None))
+        if (parameters.Length > 2 || parameters.Any(static parameter => parameter.RefKind != RefKind.None))
         {
             return false;
         }
 
-        hasParameter = parameters.Length == 1;
-        return parameters.Length == 0 || parameterType?.IsAssignableFromType(parameters[0].Type) == true;
+        parameterCount = parameters.Length;
+        return parameters.Length switch
+        {
+            0 => true,
+            1 => parameterType?.IsAssignableFromType(parameters[0].Type) == true,
+            2 => parameters[0].Type.SpecialType == SpecialType.System_String &&
+                 parameterType?.IsAssignableFromType(parameters[1].Type) == true,
+            _ => false
+        };
     }
 
     internal static AttributeData? GetCommandAttribute(IEnumerable<AttributeData> attributes)
