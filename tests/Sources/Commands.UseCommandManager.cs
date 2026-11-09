@@ -221,7 +221,7 @@ internal partial class Commands
 
         partial class MyViewModel
         {
-            private global::System.Action? _openCommandChangedCallback;
+            private global::System.Action? _stubCallback;
 
             private global::Minimal.Mvvm.IAsyncCommand? _openCommand;
             public global::Minimal.Mvvm.IAsyncCommand? OpenCommand
@@ -229,7 +229,7 @@ internal partial class Commands
                 get => _openCommand;
                 private set
                 {
-                    if (SetProperty(ref _openCommand, value, _openCommandChangedCallback ??= Stub, global::Minimal.Mvvm.EventArgsCache.OpenCommandPropertyChanged, out var oldValue))
+                    if (SetProperty(ref _openCommand, value, _stubCallback ??= Stub, global::Minimal.Mvvm.EventArgsCache.OpenCommandPropertyChanged, out var oldValue))
                     {
                         RaisePropertyChanged(global::Minimal.Mvvm.EventArgsCache.IsOpenAvailablePropertyChanged);
                         global::Minimal.Mvvm.RequerySuggestedEventManager.RemoveHandler(oldValue);

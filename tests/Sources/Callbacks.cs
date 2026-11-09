@@ -27,11 +27,11 @@ internal static partial class Callbacks
 
             partial class MyModel
             {
-                private global::System.Action? _currentViewModelChangedCallback;
+                private global::System.Action? _onCurrentViewModelChangedCallback;
                 public global::Minimal.Mvvm.ViewModelBase? CurrentViewModel
                 {
                     get => _currentViewModel;
-                    set => SetProperty(ref _currentViewModel, value, _currentViewModelChangedCallback ??= OnCurrentViewModelChanged, global::Minimal.Mvvm.EventArgsCache.CurrentViewModelPropertyChanged);
+                    set => SetProperty(ref _currentViewModel, value, _onCurrentViewModelChangedCallback ??= OnCurrentViewModelChanged, global::Minimal.Mvvm.EventArgsCache.CurrentViewModelPropertyChanged);
                 }
             }
             """ ),
@@ -62,11 +62,11 @@ internal static partial class Callbacks
 
             partial class MyModel
             {
-                private global::System.Action<global::Minimal.Mvvm.ViewModelBase?>? _currentViewModelChangedCallback;
+                private global::System.Action<global::Minimal.Mvvm.ViewModelBase?>? _onCurrentViewModelChangedCallback;
                 public global::Minimal.Mvvm.ViewModelBase? CurrentViewModel
                 {
                     get => _currentViewModel;
-                    set => SetProperty(ref _currentViewModel, value, _currentViewModelChangedCallback ??= OnCurrentViewModelChanged, global::Minimal.Mvvm.EventArgsCache.CurrentViewModelPropertyChanged);
+                    set => SetProperty(ref _currentViewModel, value, _onCurrentViewModelChangedCallback ??= OnCurrentViewModelChanged, global::Minimal.Mvvm.EventArgsCache.CurrentViewModelPropertyChanged);
                 }
             }
             """ ),
@@ -101,11 +101,11 @@ internal static partial class Callbacks
 
             partial class MyModel
             {
-                private global::System.Action<global::Minimal.Mvvm.ViewModelBase?>? _currentViewModelChangedCallback;
+                private global::System.Action<global::Minimal.Mvvm.ViewModelBase?>? _onCurrentViewModelChangedCallback;
                 public global::Minimal.Mvvm.ViewModelBase? CurrentViewModel
                 {
                     get => _currentViewModel;
-                    set => SetProperty(ref _currentViewModel, value, _currentViewModelChangedCallback ??= OnCurrentViewModelChanged, global::Minimal.Mvvm.EventArgsCache.CurrentViewModelPropertyChanged);
+                    set => SetProperty(ref _currentViewModel, value, _onCurrentViewModelChangedCallback ??= OnCurrentViewModelChanged, global::Minimal.Mvvm.EventArgsCache.CurrentViewModelPropertyChanged);
                 }
             }
             """ ),
@@ -138,11 +138,11 @@ internal static partial class Callbacks
 
             partial class MyModel
             {
-                private global::System.Action<global::Minimal.Mvvm.ViewModelBase?>? _currentViewModelChangedCallback;
+                private global::System.Action<global::Minimal.Mvvm.ViewModelBase?>? _onCurrentViewModelChangedCallback;
                 public global::Minimal.Mvvm.ViewModelBase? CurrentViewModel
                 {
                     get => _currentViewModel;
-                    set => SetProperty(ref _currentViewModel, value, _currentViewModelChangedCallback ??= OnCurrentViewModelChanged, global::Minimal.Mvvm.EventArgsCache.CurrentViewModelPropertyChanged);
+                    set => SetProperty(ref _currentViewModel, value, _onCurrentViewModelChangedCallback ??= OnCurrentViewModelChanged, global::Minimal.Mvvm.EventArgsCache.CurrentViewModelPropertyChanged);
                 }
             }
             """ )

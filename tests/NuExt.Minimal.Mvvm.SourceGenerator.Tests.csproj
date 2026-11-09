@@ -22,7 +22,6 @@
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="5.9.0" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.11.0" />
     <PackageReference Condition="'$(NuExt_UseLocalProjects)' != 'true'" Include="NuExt.Minimal.Mvvm" Version="0.8.1" />
-    <PackageReference Include="NuExt.Minimal.Mvvm" Version="0.8.1" />
     <PackageReference Include="NUnit" Version="5.0.0" />
     <PackageReference Include="NUnit.Analyzers" Version="4.15.0">
       <PrivateAssets>all</PrivateAssets>

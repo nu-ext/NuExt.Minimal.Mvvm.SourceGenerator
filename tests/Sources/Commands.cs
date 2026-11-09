@@ -234,13 +234,14 @@ internal partial class Commands
                     private set => SetProperty(ref _activateCommand, value, global::Minimal.Mvvm.EventArgsCache.ActivateCommandPropertyChanged);
                 }
 
-                private global::System.Action<global::Minimal.Mvvm.IAsyncCommand<global::Minimal.Mvvm.ViewModelBase?>?>? _changeActiveViewModelCommandChangedCallback;
+                private global::System.Action<global::Minimal.Mvvm.IAsyncCommand<global::Minimal.Mvvm.ViewModelBase?>?>? _onChangeActiveViewModelCommandChangedCallback;
+
                 private global::Minimal.Mvvm.IAsyncCommand<global::Minimal.Mvvm.ViewModelBase?>? _changeActiveViewModelCommand;
                 [global::System.Text.Json.Serialization.JsonIgnore]
                 public global::Minimal.Mvvm.IAsyncCommand<global::Minimal.Mvvm.ViewModelBase?>? ChangeActiveViewModelCommand
                 {
                     get => _changeActiveViewModelCommand;
-                    private set => SetProperty(ref _changeActiveViewModelCommand, value, _changeActiveViewModelCommandChangedCallback ??= OnChangeActiveViewModelCommandChanged, global::Minimal.Mvvm.EventArgsCache.ChangeActiveViewModelCommandPropertyChanged);
+                    private set => SetProperty(ref _changeActiveViewModelCommand, value, _onChangeActiveViewModelCommandChangedCallback ??= OnChangeActiveViewModelCommandChanged, global::Minimal.Mvvm.EventArgsCache.ChangeActiveViewModelCommandPropertyChanged);
                 }
             }
             """ ),

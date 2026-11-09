@@ -211,26 +211,26 @@ internal static partial class AlsoNotifyAttributes
 
                        partial class PersonModel
                        {
-                           private global::System.Action<decimal>? _salaryChangedCallback;
+                           private global::System.Action<decimal>? _onSalaryChangedCallback;
                            public decimal Salary
                            {
                                get => _salary;
                                set
                                {
-                                   if (SetProperty(ref _salary, value, _salaryChangedCallback ??= OnSalaryChanged, global::Minimal.Mvvm.EventArgsCache.SalaryPropertyChanged))
+                                   if (SetProperty(ref _salary, value, _onSalaryChangedCallback ??= OnSalaryChanged, global::Minimal.Mvvm.EventArgsCache.SalaryPropertyChanged))
                                    {
                                        RaisePropertiesChanged(global::Minimal.Mvvm.EventArgsCache.TaxesPropertyChanged, global::Minimal.Mvvm.EventArgsCache.NetSalaryPropertyChanged, global::Minimal.Mvvm.EventArgsCache.AnnualSalaryPropertyChanged);
                                    }
                                }
                            }
 
-                           private global::System.Action? _taxRateChangedCallback;
+                           private global::System.Action? _onTaxRateChangedCallback;
                            public decimal TaxRate
                            {
                                get => _taxRate;
                                set
                                {
-                                   if (SetProperty(ref _taxRate, value, _taxRateChangedCallback ??= OnTaxRateChanged, global::Minimal.Mvvm.EventArgsCache.TaxRatePropertyChanged))
+                                   if (SetProperty(ref _taxRate, value, _onTaxRateChangedCallback ??= OnTaxRateChanged, global::Minimal.Mvvm.EventArgsCache.TaxRatePropertyChanged))
                                    {
                                        RaisePropertiesChanged(global::Minimal.Mvvm.EventArgsCache.TaxesPropertyChanged, global::Minimal.Mvvm.EventArgsCache.NetSalaryPropertyChanged, global::Minimal.Mvvm.EventArgsCache.AnnualSalaryPropertyChanged);
                                    }
