@@ -236,6 +236,9 @@ internal partial struct NotifyPropertyGenerator
                 case 2:
                     writer.Write($"<string{nullable}, {propCtx.FullyQualifiedTypeName}>");
                     break;
+                case 3:
+                    writer.Write($"<string{nullable}, {propCtx.FullyQualifiedTypeName}, {propCtx.FullyQualifiedTypeName}>");
+                    break;
             }
             writer.WriteLine($"{nullable} {backingCallbackFieldName};");
             writer.WriteLineNoTabs(string.Empty);
@@ -480,7 +483,7 @@ internal partial struct NotifyPropertyGenerator
         }
 
         var parameters = methodSymbol.Parameters;
-        if (parameters.Length > 2 || parameters.Any(static parameter => parameter.RefKind != RefKind.None))
+        if (parameters.Length > 3 || parameters.Any(static parameter => parameter.RefKind != RefKind.None))
         {
             return false;
         }
@@ -492,6 +495,9 @@ internal partial struct NotifyPropertyGenerator
             1 => parameterType?.IsAssignableFromType(parameters[0].Type) == true,
             2 => parameters[0].Type.SpecialType == SpecialType.System_String &&
                  parameterType?.IsAssignableFromType(parameters[1].Type) == true,
+            3 => parameters[0].Type.SpecialType == SpecialType.System_String &&
+                 parameterType?.IsAssignableFromType(parameters[1].Type) == true &&
+                 parameterType?.IsAssignableFromType(parameters[2].Type) == true,
             _ => false
         };
     }
