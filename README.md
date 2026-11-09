@@ -25,7 +25,7 @@
 - **Commands**
   - Generates command properties from synchronous and asynchronous methods.
   - Supports complete command generation through `[GenerateCommands]` and `[Command]`.
-  - Generates command creation, initialization, lookup, enumeration, and cleanup overrides.
+  - Generates command creation, initialization, bidirectional lookup, enumeration, and cleanup overrides.
   - Discovers `CanExecute` callbacks in the current type and its accessible base types.
   - Supports explicit command names, `CanExecute` callback names, command-property accessibility, and WPF `CommandManager` integration.
 - **Validation (`INotifyDataErrorInfo`)**
@@ -107,7 +107,7 @@ Conceptually, the generator produces:
 - `FullName` notifications when either generated property changes.
 - An asynchronous `ShowInfoCommand` bound to `ShowInfoAsync`.
 - Automatic discovery and binding of `CanShowInfo`.
-- Command initialization, lookup, enumeration, and cleanup overrides.
+- Command initialization, bidirectional lookup, enumeration, and cleanup overrides.
 - Cached event arguments for allocation-free notification paths.
 
 ## Command generation
@@ -141,7 +141,7 @@ For every `[Command]` method, the generator:
 - Generates the command property.
 - Generates creation of the appropriate synchronous, `Task`-based, or `ValueTask`-based command instance.
 - Resolves and binds a `CanExecute` callback when one is available.
-- Generates overrides for command creation, lookup, enumeration, and cleanup.
+- Generates overrides for command creation, bidirectional lookup, enumeration, and cleanup.
 - Preserves commands declared by base ViewModels through generated `base` calls.
 
 The annotated class must be `partial` and derive from a compatible base class that supplies the command infrastructure, such as `CommandViewModelBase`, `ControlViewModelBase`, or `WindowViewModelBase` from `NuExt.Minimal.Mvvm.Wpf`.
@@ -216,6 +216,7 @@ Complete generation implements the command infrastructure required by the base c
 
 - `CreateCommands()` creates commands declared by the current class after calling the base implementation.
 - `GetCurrentCommand(...)` maps a command method to its generated command property and delegates unknown methods to the base implementation.
+- `GetCommandMethodName(...)` maps a generated command instance to its ViewModel method name and delegates inherited commands to the base implementation.
 - `GetAllCommands(...)` includes base commands and appends commands declared by the current class.
 - `NullifyCommands()` clears generated command properties and then invokes the base implementation.
 

@@ -470,7 +470,7 @@ public partial class Generator : IIncrementalGenerator
 
                 if (generateCommands && !hasInvalidCommandInfo)
                 {
-                    CommandGenerator.Generate(writer, commandInfos, ref isFirst);
+                    CommandGenerator.Generate(compilation, containingType, writer, commandInfos, ref isFirst);
                 }
 
                 for (int i = 0; i < outerTypes.Count; i++)

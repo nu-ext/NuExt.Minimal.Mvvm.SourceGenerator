@@ -10,7 +10,7 @@ internal struct CommandGenerator
     internal const string GenerateCommandsAttributeFullyQualifiedMetadataName = "Minimal.Mvvm.GenerateCommandsAttribute";
     private const string CommandViewModelBaseFullyQualifiedMetadataName = "Minimal.Mvvm.Wpf.CommandViewModelBase";
 
-    private static readonly string[] s_infrastructureMethodNames = ["CreateCommands", "GetCurrentCommand", "GetAllCommands", "NullifyCommands"];
+    private static readonly string[] s_infrastructureMethodNames = ["CreateCommands", "GetCurrentCommand", "GetCommandMethodName", "GetAllCommands", "NullifyCommands"];
 
     #region Pipeline
 
@@ -214,17 +214,40 @@ internal struct CommandGenerator
         return SymbolEqualityComparer.Default.Equals(methodSymbol.ReturnType, valueTaskType) ? CommandExecutionKind.ValueTask : CommandExecutionKind.Task;
     }
 
-    internal static void Generate(IndentedTextWriter writer, IReadOnlyList<CommandInfo> commandInfos, ref bool isFirst)
+    internal static void Generate(Compilation compilation, INamedTypeSymbol containingType, IndentedTextWriter writer, IReadOnlyList<CommandInfo> commandInfos, ref bool isFirst)
     {
         if (commandInfos.Count == 0)
         {
             return;
         }
 
-        GenerateCreateCommands(writer, commandInfos, ref isFirst);
-        GenerateGetCurrentCommand(writer, commandInfos, ref isFirst);
-        GenerateGetAllCommands(writer, commandInfos, ref isFirst);
-        GenerateNullifyCommands(writer, commandInfos, ref isFirst);
+        GenerateCreateCommands(writer, commandInfos, HasConcreteBaseImplementation(compilation, containingType, "CreateCommands"), ref isFirst);
+        GenerateGetCurrentCommand(writer, commandInfos, HasConcreteBaseImplementation(compilation, containingType, "GetCurrentCommand"), ref isFirst);
+        GenerateGetCommandMethodName(writer, commandInfos, HasConcreteBaseImplementation(compilation, containingType, "GetCommandMethodName"), ref isFirst);
+        GenerateGetAllCommands(writer, commandInfos, HasConcreteBaseImplementation(compilation, containingType, "GetAllCommands"), ref isFirst);
+        GenerateNullifyCommands(writer, commandInfos, HasConcreteBaseImplementation(compilation, containingType, "NullifyCommands"), ref isFirst);
+    }
+
+    private static bool HasConcreteBaseImplementation(Compilation compilation, INamedTypeSymbol containingType, string methodName)
+    {
+        var commandViewModelBaseType = compilation.GetTypeByMetadataName(CommandViewModelBaseFullyQualifiedMetadataName);
+        if (commandViewModelBaseType is null)
+        {
+            return false;
+        }
+
+        for (var baseType = containingType.BaseType; baseType is not null; baseType = baseType.BaseType)
+        {
+            foreach (var member in baseType.GetMembers(methodName))
+            {
+                if (member is IMethodSymbol method && HasInfrastructureSignature(method, commandViewModelBaseType))
+                {
+                    return !method.IsAbstract;
+                }
+            }
+        }
+
+        return false;
     }
 
     private static string EscapeIdentifier(string identifier)
@@ -232,16 +255,15 @@ internal struct CommandGenerator
         return SyntaxFacts.GetKeywordKind(identifier) != SyntaxKind.None ? "@" + identifier : identifier;
     }
 
-    private static void GenerateCreateCommands(IndentedTextWriter writer, IReadOnlyList<CommandInfo> commandInfos, ref bool isFirst)
+    private static void GenerateCreateCommands(IndentedTextWriter writer, IReadOnlyList<CommandInfo> commandInfos, bool callBase, ref bool isFirst)
     {
         WriteSeparator(writer, ref isFirst);
         writer.WriteLine("protected override void CreateCommands()");
         writer.WriteLine("{");
         writer.Indent++;
-        writer.WriteLine("base.CreateCommands();");
-
-        if (commandInfos.Count > 0)
+        if (callBase)
         {
+            writer.WriteLine("base.CreateCommands();");
             writer.WriteLineNoTabs(string.Empty);
         }
 
@@ -280,7 +302,7 @@ internal struct CommandGenerator
         writer.WriteLine("}");
     }
 
-    private static void GenerateGetCurrentCommand(IndentedTextWriter writer, IReadOnlyList<CommandInfo> commandInfos, ref bool isFirst)
+    private static void GenerateGetCurrentCommand(IndentedTextWriter writer, IReadOnlyList<CommandInfo> commandInfos, bool callBase, ref bool isFirst)
     {
         WriteSeparator(writer, ref isFirst);
         writer.WriteLine("protected override global::System.Windows.Input.ICommand? GetCurrentCommand([global::System.Runtime.CompilerServices.CallerMemberName] string? callerName = null)");
@@ -295,23 +317,65 @@ internal struct CommandGenerator
             writer.WriteLine($"nameof({EscapeIdentifier(commandInfo.ExecuteMethod.Name)}) => {EscapeIdentifier(commandInfo.PropertyName)},");
         }
 
-        writer.WriteLine("_ => base.GetCurrentCommand(callerName)");
+        writer.WriteLine(callBase
+            ? "_ => base.GetCurrentCommand(callerName)"
+            : "_ => throw new global::System.ArgumentException($\"Command for method '{callerName}' was not found.\", nameof(callerName))");
         writer.Indent--;
         writer.WriteLine("};");
         writer.Indent--;
         writer.WriteLine("}");
     }
 
-    private static void GenerateGetAllCommands(IndentedTextWriter writer, IReadOnlyList<CommandInfo> commandInfos, ref bool isFirst)
+    private static void GenerateGetCommandMethodName(IndentedTextWriter writer, IReadOnlyList<CommandInfo> commandInfos, bool callBase, ref bool isFirst)
+    {
+        WriteSeparator(writer, ref isFirst);
+        writer.WriteLine("protected override string GetCommandMethodName(global::System.Windows.Input.ICommand command)");
+        writer.WriteLine("{");
+        writer.Indent++;
+
+        foreach (var commandInfo in commandInfos)
+        {
+            writer.WriteLine($"if (global::System.Object.ReferenceEquals(command, {EscapeIdentifier(commandInfo.PropertyName)}))");
+            writer.WriteLine("{");
+            writer.Indent++;
+            writer.WriteLine($"return nameof({EscapeIdentifier(commandInfo.ExecuteMethod.Name)});");
+            writer.Indent--;
+            writer.WriteLine("}");
+        }
+
+        if (commandInfos.Count > 0)
+        {
+            writer.WriteLineNoTabs(string.Empty);
+        }
+
+        if (callBase)
+        {
+            writer.WriteLine("return base.GetCommandMethodName(command);");
+        }
+        else
+        {
+            writer.WriteLine("if (command is null)");
+            writer.WriteLine("{");
+            writer.Indent++;
+            writer.WriteLine("throw new global::System.ArgumentNullException(nameof(command));");
+            writer.Indent--;
+            writer.WriteLine("}");
+            writer.WriteLineNoTabs(string.Empty);
+            writer.WriteLine("throw new global::System.ArgumentException($\"Method for command '{command.GetType().FullName}' was not found.\", nameof(command));");
+        }
+        writer.Indent--;
+        writer.WriteLine("}");
+    }
+
+    private static void GenerateGetAllCommands(IndentedTextWriter writer, IReadOnlyList<CommandInfo> commandInfos, bool callBase, ref bool isFirst)
     {
         WriteSeparator(writer, ref isFirst);
         writer.WriteLine("protected override void GetAllCommands(ref global::System.Collections.Generic.ValueListBuilder<(string PropertyName, global::System.Windows.Input.ICommand? Command)> builder)");
         writer.WriteLine("{");
         writer.Indent++;
-        writer.WriteLine("base.GetAllCommands(ref builder);");
-
-        if (commandInfos.Count > 0)
+        if (callBase)
         {
+            writer.WriteLine("base.GetAllCommands(ref builder);");
             writer.WriteLineNoTabs(string.Empty);
         }
 
@@ -324,7 +388,7 @@ internal struct CommandGenerator
         writer.WriteLine("}");
     }
 
-    private static void GenerateNullifyCommands(IndentedTextWriter writer, IReadOnlyList<CommandInfo> commandInfos, ref bool isFirst)
+    private static void GenerateNullifyCommands(IndentedTextWriter writer, IReadOnlyList<CommandInfo> commandInfos, bool callBase, ref bool isFirst)
     {
         WriteSeparator(writer, ref isFirst);
         writer.WriteLine("protected override void NullifyCommands()");
@@ -336,12 +400,11 @@ internal struct CommandGenerator
             writer.WriteLine($"{EscapeIdentifier(commandInfo.PropertyName)} = null;");
         }
 
-        if (commandInfos.Count > 0)
+        if (callBase)
         {
             writer.WriteLineNoTabs(string.Empty);
+            writer.WriteLine("base.NullifyCommands();");
         }
-
-        writer.WriteLine("base.NullifyCommands();");
         writer.Indent--;
         writer.WriteLine("}");
     }
