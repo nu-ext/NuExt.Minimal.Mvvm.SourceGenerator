@@ -12,15 +12,13 @@ namespace NuExt.Minimal.Mvvm.SourceGenerator.Tests;
 public class CSharpSourceGeneratorTestBase : CSharpSourceGeneratorTest<Generator, DefaultVerifier>
 {
 #if NET11_0
-    private static readonly ReferenceAssemblies Net110Windows =
-        new ReferenceAssemblies(
-                targetFramework: "net11.0-windows",
-                referenceAssemblyPackage: new PackageIdentity("Microsoft.NETCore.App.Ref", "11.0.0"),
-                referenceAssemblyPath: System.IO.Path.Combine("ref", "net11.0"))
-            .AddPackages(
-            [
-                new PackageIdentity("Microsoft.WindowsDesktop.App.Ref", "11.0.0")
-            ]);
+    private static readonly ReferenceAssemblies Net110 = new(
+        targetFramework: "net11.0",
+        referenceAssemblyPackage: new PackageIdentity("Microsoft.NETCore.App.Ref", "11.0.0"),
+        referenceAssemblyPath : System.IO.Path.Combine("ref", "net11.0"));
+
+    private static readonly ReferenceAssemblies Net110Windows = Net110.AddPackages(
+        System.Collections.Immutable.ImmutableArray.Create(new PackageIdentity("Microsoft.WindowsDesktop.App.Ref", "11.0.0")));
 #endif
 
     protected static readonly string GeneratorName = typeof(Generator).Namespace!;
@@ -68,7 +66,6 @@ public class CSharpSourceGeneratorTestBase : CSharpSourceGeneratorTest<Generator
         ReferenceAssemblies = ReferenceAssemblies.Net.Net80Windows;
 #endif
         TestState.AdditionalReferences.Add(MetadataReference.CreateFromFile(typeof(BindableBase).Assembly.Location));
-        TestState.AdditionalReferences.Add(MetadataReference.CreateFromFile(typeof(System.Windows.Input.CommandManager).Assembly.Location));
     }
 
     protected static string GetExpectedSource(string? sourceTemplate)
