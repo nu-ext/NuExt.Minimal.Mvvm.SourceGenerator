@@ -41,7 +41,9 @@ internal abstract class SourceGeneratorTestBase
         var tree = CSharpSyntaxTree.ParseText(code);
 
         var references =
-#if NET10_0
+#if NET11_0
+            Basic.Reference.Assemblies.Net110.References.All.Cast<MetadataReference>()
+#elif NET10_0
             Basic.Reference.Assemblies.Net100.References.All.Cast<MetadataReference>()
 #elif NET9_0
             Basic.Reference.Assemblies.Net90.References.All.Cast<MetadataReference>()

@@ -11,6 +11,18 @@ namespace NuExt.Minimal.Mvvm.SourceGenerator.Tests;
 
 public class CSharpSourceGeneratorTestBase : CSharpSourceGeneratorTest<Generator, DefaultVerifier>
 {
+#if NET11_0
+    private static readonly ReferenceAssemblies Net110Windows =
+        new ReferenceAssemblies(
+                targetFramework: "net11.0-windows",
+                referenceAssemblyPackage: new PackageIdentity("Microsoft.NETCore.App.Ref", "11.0.0"),
+                referenceAssemblyPath: System.IO.Path.Combine("ref", "net11.0"))
+            .AddPackages(
+            [
+                new PackageIdentity("Microsoft.WindowsDesktop.App.Ref", "11.0.0")
+            ]);
+#endif
+
     protected static readonly string GeneratorName = typeof(Generator).Namespace!;
     protected static readonly Version GeneratorVersion = typeof(Generator).Assembly.GetName().Version!;
 
@@ -46,12 +58,14 @@ public class CSharpSourceGeneratorTestBase : CSharpSourceGeneratorTest<Generator
 
     public void AddReferencedAssemblies()
     {
-#if NET10_0
+#if NET11_0
+        ReferenceAssemblies = Net110Windows;
+#elif NET10_0
         ReferenceAssemblies = ReferenceAssemblies.Net.Net100Windows;
 #elif NET9_0
-    ReferenceAssemblies = ReferenceAssemblies.Net.Net90Windows;
+        ReferenceAssemblies = ReferenceAssemblies.Net.Net90Windows;
 #elif NET8_0
-    ReferenceAssemblies = ReferenceAssemblies.Net.Net80Windows;
+        ReferenceAssemblies = ReferenceAssemblies.Net.Net80Windows;
 #endif
         TestState.AdditionalReferences.Add(MetadataReference.CreateFromFile(typeof(BindableBase).Assembly.Location));
         TestState.AdditionalReferences.Add(MetadataReference.CreateFromFile(typeof(System.Windows.Input.CommandManager).Assembly.Location));

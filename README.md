@@ -10,7 +10,7 @@
 
 ## Requirements
 
-- **Consumer target frameworks:** .NET Standard 2.0/2.1, .NET 8/9/10, and .NET Framework 4.6.2+
+- **Consumer target frameworks:** .NET Standard 2.0/2.1, .NET 8/9/10/11, and .NET Framework 4.6.2+
 - **Language:** C# 12+
 - **Core package:** `NuExt.Minimal.Mvvm` or a compatible UI integration package
 
