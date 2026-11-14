@@ -49,7 +49,7 @@ internal partial struct NotifyPropertyGenerator
     private readonly ref struct NotifyPropertyContext(NotifyAttributeData attributeData, CallbackData callbackData, 
         IEnumerable<CustomAttributeData> customAttributes, IEnumerable<AlsoNotifyAttributeData> alsoNotifyAttributes, 
         UseCommandManagerAttributeData useCommandManagerAttributeData, bool isCommand,
-        string[]? comment, string fullyQualifiedTypeName, bool isPartial, bool isInitOnly,
+        string[]? comment, string fullyQualifiedTypeName, bool isPartial, bool isRequired, bool isInitOnly,
         string propertyName, string backingFieldName, bool generateBackingFieldName, bool initializeStringBackingField)
     {
         internal readonly NotifyAttributeData NotifyAttributeData = attributeData;
@@ -64,6 +64,7 @@ internal partial struct NotifyPropertyGenerator
         internal readonly bool HasComment = comment is { Length: > 0 };
         internal readonly string FullyQualifiedTypeName = fullyQualifiedTypeName;
         internal readonly bool IsPartial = isPartial;
+        internal readonly bool IsRequired = isRequired;
         internal readonly bool IsInitOnly = isInitOnly;
 
         internal readonly string PropertyName = propertyName;
@@ -304,6 +305,10 @@ internal partial struct NotifyPropertyGenerator
         {
             writer.Write("virtual ");
         }*/
+        if (propCtx.IsRequired)
+        {
+            writer.Write("required ");
+        }
         if (propCtx.IsPartial)
         {
             writer.Write("partial ");

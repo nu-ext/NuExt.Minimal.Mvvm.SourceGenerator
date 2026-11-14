@@ -3,7 +3,7 @@
 internal static partial class PartialProperties
 {
     public static List<(string source, string? expected)> Sources =
-   [
+    [
         (
             source : """
             using Minimal.Mvvm;
@@ -11,7 +11,7 @@ internal static partial class PartialProperties
             public partial class MyModel : BindableBase
             {
                 [Notify]
-                public partial string? Name { get; set; }
+                public required partial string Name { get; init; }
 
                 [Notify]
                 private partial string? Description { get; set; }
@@ -26,11 +26,11 @@ internal static partial class PartialProperties
 
             partial class MyModel
             {
-                private string? _name;
-                public partial string? Name
+                private string _name = string.Empty;
+                public required partial string Name
                 {
                     get => _name;
-                    set => SetProperty(ref _name, value, global::Minimal.Mvvm.EventArgsCache.NamePropertyChanged);
+                    init => SetProperty(ref _name, value, global::Minimal.Mvvm.EventArgsCache.NamePropertyChanged);
                 }
 
                 private string? _description;
