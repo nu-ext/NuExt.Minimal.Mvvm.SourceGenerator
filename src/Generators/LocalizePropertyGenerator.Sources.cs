@@ -69,7 +69,7 @@ partial struct LocalizePropertyGenerator
         /// <summary>
         /// Provides localized strings from <see cref="{{localizationTypeName}}"/>.
         /// </summary>
-        public sealed class {{markupExtensionName}}Extension : global::System.Windows.Markup.MarkupExtension
+        internal sealed class {{markupExtensionName}}Extension : global::System.Windows.Markup.MarkupExtension
         {
             /// <summary>
             /// Initializes a new instance of the <see cref="{{markupExtensionName}}Extension"/> class.
