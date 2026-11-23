@@ -52,7 +52,7 @@ partial struct NotifyPropertyGenerator
         var propCtx = new NotifyPropertyContext(notifyAttributeData, callbackData, customAttributeData, alsoNotifyAttributeData,
             useCommandManagerAttributeData, isCommand, 
             fieldSymbol.GetComment(), fullyQualifiedTypeName, isPartial: false, isRequired: false, isInitOnly: false,
-            propertyName!, backingFieldName, generateBackingFieldName: false, initializeStringBackingField: false);
+            propertyName!, backingFieldName, generateBackingFieldName: false, initializeStringBackingField: false, initializeNullBackingField: false);
 
         GenerateProperty(genCtx, ctx, propCtx, ref isFirst);
     }

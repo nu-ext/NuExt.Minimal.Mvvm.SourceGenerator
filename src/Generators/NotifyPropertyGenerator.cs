@@ -46,11 +46,12 @@ internal readonly ref struct NotifyPropertyGeneratorContext(IndentedTextWriter w
 
 internal partial struct NotifyPropertyGenerator
 {
-    private readonly ref struct NotifyPropertyContext(NotifyAttributeData attributeData, CallbackData callbackData, 
-        IEnumerable<CustomAttributeData> customAttributes, IEnumerable<AlsoNotifyAttributeData> alsoNotifyAttributes, 
+    private readonly ref struct NotifyPropertyContext(NotifyAttributeData attributeData, CallbackData callbackData,
+        IEnumerable<CustomAttributeData> customAttributes, IEnumerable<AlsoNotifyAttributeData> alsoNotifyAttributes,
         UseCommandManagerAttributeData useCommandManagerAttributeData, bool isCommand,
         string[]? comment, string fullyQualifiedTypeName, bool isPartial, bool isRequired, bool isInitOnly,
-        string propertyName, string backingFieldName, bool generateBackingFieldName, bool initializeStringBackingField)
+        string propertyName, string backingFieldName, bool generateBackingFieldName, bool initializeStringBackingField,
+        bool initializeNullBackingField)
     {
         internal readonly NotifyAttributeData NotifyAttributeData = attributeData;
         internal readonly CallbackData CallbackData = callbackData;
@@ -72,6 +73,7 @@ internal partial struct NotifyPropertyGenerator
         internal readonly bool GenerateBackingFieldName = generateBackingFieldName;
 
         internal readonly bool InitializeStringBackingField = initializeStringBackingField;
+        internal readonly bool InitializeNullBackingField = initializeNullBackingField;
     }
 
     internal const string NotifyAttributeFullyQualifiedMetadataName = "Minimal.Mvvm.NotifyAttribute";
@@ -271,6 +273,10 @@ internal partial struct NotifyPropertyGenerator
             if (propCtx.InitializeStringBackingField)
             {
                 writer.Write(" = string.Empty");
+            }
+            else if (propCtx.InitializeNullBackingField)
+            {
+                writer.Write(" = null!");
             }
             writer.WriteLine(";");
         }

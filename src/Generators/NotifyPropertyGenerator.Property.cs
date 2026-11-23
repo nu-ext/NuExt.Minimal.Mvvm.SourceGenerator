@@ -54,11 +54,13 @@ partial struct NotifyPropertyGenerator
 
         bool initializeStringBackingField =
             propertyType is { SpecialType: SpecialType.System_String, NullableAnnotation: NullableAnnotation.NotAnnotated };
+        bool initializeNullBackingField = !initializeStringBackingField &&
+                                          propertyType is { IsReferenceType: true, NullableAnnotation: NullableAnnotation.NotAnnotated };
 
         var propCtx = new NotifyPropertyContext(notifyAttributeData, callbackData, customAttributeData, alsoNotifyAttributeData,
-            useCommandManagerAttributeData, isCommand, 
+            useCommandManagerAttributeData, isCommand,
             comment: null, fullyQualifiedTypeName, isPartial: true, isRequired: propertySymbol.IsRequired, isInitOnly: propertySymbol.SetMethod!.IsInitOnly,
-            propertyName, backingFieldName, generateBackingFieldName: true, initializeStringBackingField);
+            propertyName, backingFieldName, generateBackingFieldName: true, initializeStringBackingField, initializeNullBackingField);
 
         GenerateProperty(genCtx, ctx, propCtx, ref isFirst);
     }
